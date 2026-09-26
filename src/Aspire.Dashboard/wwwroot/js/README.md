@@ -113,8 +113,8 @@ bright chromatic text contrast against the default background. These targets do
 not cover arbitrary foreground/background pairs or dim text.
 Default foreground, neutral ANSI slots and selection colors retain the Hex1b
 defaults. Colors are precomputed constants, not runtime transformations.
-The frame and overlay track share the
-active palette background. Mounting passes both palettes and `colorMode`;
+The frame uses the active palette background; the overlay track uses Hex1b's
+foreground/background blend. Mounting passes both palettes and `colorMode`;
 palette changes call `setColorMode` on the existing client, including changes that
 occur while mounting or while a dock pane is hidden.
 
@@ -139,7 +139,7 @@ including for the former **Follow Dashboard** preference. Site theme changes do
 not change the selected terminal palette. This non-sensitive
 preference is stored in browser local storage and applies to all terminal surfaces,
 including detached windows. Changes update existing clients without reconnecting;
-other windows observe storage events. The terminal frame and overlay track match
+other windows observe storage events. The terminal frame and overlay track follow
 the selected palette, while toolbars, dock tabs, headers and popups retain the site
 theme. The dropdown also remains available on surfaces without a dimensions
 selector and in read-only views because palette changes do not affect the workload.
@@ -199,7 +199,7 @@ upstream marker navigation. The built-in painter does not draw a thumb focus rin
 A scoped shadow-DOM override hides the track's DOM focus outline
 after pointer input, restoring the upstream `:focus-visible` outline on keyboard
 input without changing actual focus. The modality listeners are removed on disposal.
-The track uses the active terminal palette's background at 35% opacity. The thumb
+The track uses Hex1b's active-palette foreground/background blend at 35% opacity. The thumb
 uses that palette's foreground, so it remains contrasting in either theme.
 Markers use the Dashboard's brand foreground and error tokens at 65% opacity,
 restoring full opacity for increased contrast and forced colors. The track remains

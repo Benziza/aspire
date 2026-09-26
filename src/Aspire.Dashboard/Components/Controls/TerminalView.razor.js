@@ -65,9 +65,8 @@ function scrollbarConfiguration(state) {
             padding: "8px 12px",
         };
         const renderScrollbar = createDefaultScrollbarRenderer({
-            // The overlay shares the terminal palette rather than the surrounding page surface.
             track: {
-                color: forced ? color("Canvas") : palette.background,
+                color: forced ? color("Canvas") : undefined,
                 opacity: forced || state.moreContrast.matches ? 1 : 0.35,
             },
             thumb: {
