@@ -62,6 +62,7 @@ public partial class DashboardRunSelect : ComponentBase
             var menuItem = new MenuButtonItem
             {
                 Id = $"{_runMenuItemIdPrefix}-{Uri.EscapeDataString(run.RunId)}",
+                RenderKey = run.RunId,
                 Text = FormatRunOption(run),
                 Role = MenuItemRole.Radio,
                 Checked = string.Equals(run.RunId, SelectedRunId, StringComparison.Ordinal),

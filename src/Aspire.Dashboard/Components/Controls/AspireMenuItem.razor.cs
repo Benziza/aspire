@@ -54,7 +54,7 @@ public partial class AspireMenuItem
         foreach (var nestedItem in nestedItems)
         {
             builder.OpenComponent<AspireMenuItem>(0);
-            builder.SetKey(nestedItem.Id);
+            builder.SetKey(nestedItem.RenderKey);
             builder.AddAttribute(1, nameof(Item), nestedItem);
             builder.AddAttribute(2, nameof(OnItemActivated), OnItemActivated);
             builder.AddAttribute(3, nameof(OnSecondaryActionClicked), OnSecondaryActionClicked);
