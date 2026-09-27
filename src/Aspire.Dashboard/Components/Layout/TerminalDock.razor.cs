@@ -130,9 +130,7 @@ public sealed partial class TerminalDock : ComponentBase, IGlobalKeydownListener
     /// Shows the dock, or hides it if it is already showing.
     /// </summary>
     /// <remarks>
-    /// Public so the header button can drive the dock. The keyboard shortcut alone is not enough: <c>`</c> is
-    /// suppressed whenever focus is in a terminal or any other text input, because it types <c>`</c> there, so the
-    /// dock needs an affordance that works regardless of where focus happens to be.
+    /// Public so the mobile navigation menu can toggle the dock without a keyboard.
     /// </remarks>
     public Task ToggleAsync() => InvokeAsync(() =>
     {

@@ -53,7 +53,7 @@ public partial class MainLayoutTests
         }
 
         Assert.Equal(isEnabled ? 1 : 0, cut.FindComponents<TerminalDock>().Count);
-        Assert.Equal(isEnabled ? 1 : 0, cut.FindAll(toggleSelector).Count);
+        Assert.Equal(isEnabled && !isDesktop ? 1 : 0, cut.FindAll(toggleSelector).Count);
         await cut.InvokeAsync(() => shortcuts.OnGlobalKeyDown(AspireKeyboardShortcut.ToggleTerminalDock));
 
         if (isEnabled)
@@ -66,7 +66,7 @@ public partial class MainLayoutTests
             await cut.InvokeAsync(() => client.SetConnectionState(DashboardConnectionState.Disconnected));
             cut.Render();
             Assert.Same(dock, cut.FindComponent<TerminalDock>().Instance);
-            Assert.Single(cut.FindAll(toggleSelector));
+            Assert.Equal(isDesktop ? 0 : 1, cut.FindAll(toggleSelector).Count);
             await cut.InvokeAsync(() => dock.DisposeAsync().AsTask()).DefaultTimeout();
         }
         else
@@ -130,7 +130,7 @@ public partial class MainLayoutTests
         }
 
         var originalDock = cut.FindComponent<TerminalDock>().Instance;
-        Assert.Single(cut.FindAll(toggleSelector));
+        Assert.Equal(isDesktop ? 0 : 1, cut.FindAll(toggleSelector).Count);
         await updates.Writer.WriteAsync(TerminalSetupHelpers.Change(TerminalChangeType.Activated, "old"));
         cut.WaitForAssertion(() =>
         {
@@ -154,7 +154,7 @@ public partial class MainLayoutTests
         await cut.InvokeAsync(() => cut.FindComponent<DashboardRunSelect>().Instance.SelectedRunIdChanged.InvokeAsync(null));
         var newDock = cut.FindComponent<TerminalDock>().Instance;
         Assert.NotSame(originalDock, newDock);
-        Assert.Single(cut.FindAll(toggleSelector));
+        Assert.Equal(isDesktop ? 0 : 1, cut.FindAll(toggleSelector).Count);
         await cut.InvokeAsync(() => shortcuts.OnGlobalKeyDown(AspireKeyboardShortcut.ToggleTerminalDock));
         cut.WaitForAssertion(() =>
         {
@@ -164,6 +164,42 @@ public partial class MainLayoutTests
         });
 
         await cut.InvokeAsync(() => newDock.DisposeAsync().AsTask()).DefaultTimeout();
+    }
+
+    [Fact]
+    public async Task TerminalDock_DesktopShortcut_CanOpenCollapseAndReopenWithoutHeaderButton()
+    {
+        var client = new TestDashboardClient(
+            isEnabled: true,
+            terminalChannelProvider: () => Channel.CreateUnbounded<WatchTerminalsUpdate>(),
+            resourceChannelProvider: () => Channel.CreateUnbounded<IReadOnlyList<ResourceViewModelChange>>());
+        TerminalSetupHelpers.SetupTerminalView(this);
+        TerminalSetupHelpers.SetupTerminalDock(this);
+        SetupMainLayoutServices(dashboardClient: client);
+
+        var cut = Render<MainLayout>(builder => builder.Add(p => p.ViewportInformation,
+            new ViewportInformation(IsDesktop: true, IsUltraLowHeight: false, IsUltraLowWidth: false)));
+        var label = Services.GetRequiredService<IStringLocalizer<Resources.TerminalStrings>>()[nameof(Resources.TerminalStrings.MainLayoutToggleTerminalDock)].Value;
+        var shortcuts = Services.GetRequiredService<ShortcutManager>();
+        var dock = cut.FindComponent<TerminalDock>().Instance;
+        Assert.Empty(cut.FindAll(".terminal-dock"));
+
+        foreach (var visible in new[] { true, false, true })
+        {
+            await cut.InvokeAsync(() => shortcuts.OnGlobalKeyDown(AspireKeyboardShortcut.ToggleTerminalDock));
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Empty(cut.FindAll($"header fluent-button[aria-label='{label}']"));
+                var panel = Assert.Single(cut.FindAll(".terminal-dock"));
+                Assert.Equal(visible ? "false" : "true", panel.GetAttribute("aria-hidden"));
+                Assert.Equal(!visible, panel.HasAttribute("inert"));
+                Assert.Contains(visible ? "visible" : "collapsed", panel.ClassList);
+                Assert.Same(dock, cut.FindComponent<TerminalDock>().Instance);
+            });
+        }
+
+        await cut.InvokeAsync(() => dock.DisposeAsync().AsTask()).DefaultTimeout();
     }
 
     [Fact]

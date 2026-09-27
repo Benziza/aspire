@@ -53,17 +53,6 @@
                     <FluentIcon Value="@(new Icons.Regular.Size24.BotSparkle())" Color="Color.Default"/>
                 </FluentButton>
             }
-            @if (IsTerminalDockEnabled)
-            {
-                <FluentButton Class="header-button"
-                              Appearance="ButtonAppearance.Default" OnClick="@ToggleTerminalDockAsync"
-                              Title="@TerminalLoc[nameof(TerminalStrings.MainLayoutToggleTerminalDock)]" aria-label="@TerminalLoc[nameof(TerminalStrings.MainLayoutToggleTerminalDock)]">
-                    @* WindowConsole only ships at Size20 in this Fluent version, so it is scaled to 24px to line up with
-                       the rest of the header cluster. The Size24 alternatives (WindowDevTools, Code) read as "developer
-                       tools" rather than "terminal". *@
-                    <FluentIcon Value="@(new Icons.Regular.Size20.WindowConsole())" Width="24px" Color="Color.Default"/>
-                </FluentButton>
-            }
             <NotificationsHeaderButton OnClick="@LaunchNotificationsAsync" />
             <FluentButton Class="header-button"
                           Id="@SettingsButtonId"

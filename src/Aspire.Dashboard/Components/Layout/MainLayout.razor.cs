@@ -67,9 +67,6 @@ public partial class MainLayout : IGlobalKeydownListener, IAsyncDisposable
     public required IStringLocalizer<Resources.Layout> Loc { get; init; }
 
     [Inject]
-    public required IStringLocalizer<Resources.TerminalStrings> TerminalLoc { get; init; }
-
-    [Inject]
     public required DashboardDialogService DialogService { get; init; }
 
     [Inject]
