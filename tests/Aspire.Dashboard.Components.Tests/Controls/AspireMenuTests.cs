@@ -55,6 +55,7 @@ public class AspireMenuTests : DashboardTestContext
         });
 
         var pinButton = menuHost.WaitForElement("fluent-button[aria-label='Pin run']");
+        var pinId = pinButton.Id;
         var actionContainer = Assert.Single(menuHost.FindAll("span.aspire-menu-secondary-action-container[slot='end']"));
         Assert.NotNull(actionContainer.QuerySelector("fluent-button[aria-label='Pin run']"));
         Assert.Equal("false", pinButton.GetAttribute("aria-pressed"));
@@ -72,7 +73,10 @@ public class AspireMenuTests : DashboardTestContext
             Assert.True(menuHost.Instance.Open);
             Assert.Single(menuHost.FindComponents<FluentMenu>());
             var unpinButton = menuHost.Find("fluent-button[aria-label='Unpin run']");
+            Assert.Equal(pinId, unpinButton.Id);
             Assert.Equal("true", unpinButton.GetAttribute("aria-pressed"));
+            Assert.Contains(JSInterop.Invocations, invocation =>
+                invocation.Identifier == "focusElement" && invocation.Arguments.Single() is string id && id == pinId);
         });
     }
 
