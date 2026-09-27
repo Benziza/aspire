@@ -263,6 +263,13 @@
         fill: var(--colorBrandForeground1) !important;
     }
 
+    ::deep.layout > .desktop-nav-rail button.fluent-appbar-more-item {
+        --appbar-item-height-adjustment: calc(var(--appbar-item-size) - 48px);
+        height: 48px;
+        min-height: 48px;
+        flex: 0 0 48px;
+    }
+
     ::deep.layout > .desktop-nav-rail button.fluent-appbar-more-item:hover {
         background-color: var(--colorNeutralBackground3);
     }
