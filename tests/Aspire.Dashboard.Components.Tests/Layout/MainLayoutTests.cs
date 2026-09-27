@@ -854,6 +854,8 @@ public partial class MainLayoutTests : DashboardTestContext
         var menuItems = cut.WaitForElements("fluent-menu-item");
         var pinButton = Assert.Single(menuItems[3].QuerySelectorAll("fluent-button"));
         var pinId = pinButton.Id;
+        var pinMenuItemId = Assert.IsType<string>(menuItems[3].Id);
+        var pinMenuItem = cut.FindComponents<FluentMenuItem>().Single(item => item.Instance.Id == pinMenuItemId).Instance;
         var priorFirstPinnedId = Assert.Single(menuItems[1].QuerySelectorAll("fluent-button")).Id;
         pinButton.Click();
 
@@ -868,6 +870,8 @@ public partial class MainLayoutTests : DashboardTestContext
         Assert.False(items[5].IsSecondaryActionSelected);
 
         menuItems = cut.WaitForElements("fluent-menu-item");
+        Assert.Same(pinMenuItem, cut.FindComponents<FluentMenuItem>().Single(item => item.Instance.Id == pinMenuItemId).Instance);
+        Assert.True(cut.FindComponent<AspireMenu>().Instance.Open);
         Assert.Equal(pinId, Assert.Single(menuItems[1].QuerySelectorAll("fluent-button")).Id);
         Assert.Equal(priorFirstPinnedId, Assert.Single(menuItems[2].QuerySelectorAll("fluent-button")).Id);
         Assert.Equal(
@@ -883,6 +887,7 @@ public partial class MainLayoutTests : DashboardTestContext
             DashboardRunSelect.GetSortedRuns(runStore.GetRuns()).Skip(1).Select(run => run.RunId));
         Assert.All(items.Skip(2).Take(2), item => Assert.True(item.IsSecondaryActionSelected));
         Assert.All(items.Skip(4).Take(2), item => Assert.False(item.IsSecondaryActionSelected));
+        Assert.True(cut.FindComponent<AspireMenu>().Instance.Open);
         Assert.Equal(pinId, Assert.Single(cut.WaitForElements("fluent-menu-item")[3].QuerySelectorAll("fluent-button")).Id);
         Assert.Equal(
             [pinId, pinId],
