@@ -17,7 +17,7 @@
     <FluentMenuList>
         @foreach (var item in Items)
         {
-            <AspireMenuItem @key="item.Id"
+            <AspireMenuItem @key="item.RenderKey"
                             Item="item"
                             OnItemActivated="HandleItemActivatedAsync"
                             OnSecondaryActionClicked="HandleSecondaryActionClicked" />

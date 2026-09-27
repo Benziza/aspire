@@ -14,6 +14,30 @@ namespace Aspire.Dashboard.Components.Tests.Controls;
 public class AspireMenuTests : DashboardTestContext
 {
     [Fact]
+    public void UnkeyedItemsWithGeneratedIds_PreserveComponentIdentityAcrossRefresh()
+    {
+        FluentUISetupHelpers.AddCommonDashboardServices(this);
+        FluentUISetupHelpers.SetupFluentUIComponents(this);
+        FluentUISetupHelpers.SetupFluentMenu(this);
+        FluentUISetupHelpers.SetupFluentAnchoredRegion(this);
+
+        var originalItem = new MenuButtonItem { Text = "Original" };
+        var menuHost = Render<AspireMenu>(builder =>
+        {
+            builder.Add(p => p.Anchor, "menu-anchor");
+            builder.Add(p => p.Open, true);
+            builder.Add(p => p.Items, new[] { originalItem });
+        });
+        var originalComponent = menuHost.FindComponent<AspireMenuItem>().Instance;
+        var refreshedItem = new MenuButtonItem { Text = "Refreshed" };
+
+        menuHost.Render(builder => builder.Add(p => p.Items, new[] { refreshedItem }));
+
+        Assert.NotEqual(originalItem.Id, refreshedItem.Id);
+        Assert.Same(originalComponent, menuHost.FindComponent<AspireMenuItem>().Instance);
+    }
+
+    [Fact]
     public async Task ClickSecondaryAction_DoesNotSelectItemAndRefreshesOpenMenu()
     {
         FluentUISetupHelpers.AddCommonDashboardServices(this);
