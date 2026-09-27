@@ -29,7 +29,7 @@ applyTo: "src/Aspire.Dashboard/**/*.{cs,razor,js}"
 
 ## Local dashboard development
 
-- Playground AppHosts that add `Projects.Aspire_Dashboard` as the `aspire-dashboard` project resource expose a **Rebuild** command. After changing dashboard source, rebuild that resource instead of stopping and restarting the entire AppHost:
+- When the dashboard is running in an AppHost as the `aspire-dashboard` project resource (`Projects.Aspire_Dashboard`) and **only the dashboard project changed**, use its **Rebuild** command instead of restarting the whole AppHost:
 
 	```powershell
 	aspire resource aspire-dashboard rebuild --apphost <apphost-path> --non-interactive
@@ -37,4 +37,26 @@ applyTo: "src/Aspire.Dashboard/**/*.{cs,razor,js}"
 	```
 
 - Select the exact running AppHost path when multiple AppHosts exist. The rebuild stops the dashboard project, builds it, and starts it again; a brief dashboard browser disconnect is expected. Check the command result and wait for the resource to become healthy before testing the UI.
-- The built-in dashboard executable is not a project resource and does not expose this Rebuild command. If the AppHost or `Aspire.Hosting` code changed, restart the AppHost through the normal lifecycle workflow so it loads the new hosting code; rebuilding only the dashboard will not do that.
+- The built-in dashboard executable is not a project resource and does not expose this Rebuild command. If the AppHost, `Aspire.Hosting`, or **any other project** changed, restart the AppHost through the normal lifecycle workflow instead of only rebuilding the dashboard; the running AppHost will not load those changes from a dashboard rebuild.
+
+### Browser verification with Playwright
+
+- Start the exact AppHost using the normal lifecycle workflow and wait for `aspire-dashboard` to be healthy before opening it in Playwright. Do not guess the dashboard port. Choose one of these local-development authentication approaches:
+  - **Authenticated (default):** Run `aspire ps --format json --non-interactive`, find the running entry whose `appHostPath` matches the selected AppHost, and pass its `dashboardUrl` directly to Playwright (for example, `await page.goto(dashboardUrl)`). The URL includes `/login?t=<token>` when browser-token authentication is enabled; visiting it establishes the browser session. Treat the full URL as a credential: do not commit it, paste it into reports, or include it in screenshots or logs.
+  - **Anonymous local AppHost:** Set `ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true` **before starting** the AppHost. For a CLI-managed launch, set it in the same shell as `aspire start`; for an editor-managed launch, set it in the AppHost's launch environment before starting through the editor:
+
+    ```powershell
+    $env:ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS = "true"
+    aspire start --apphost <apphost-path> --non-interactive
+    Remove-Item Env:ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS
+    ```
+
+    Use this only on a trusted local development machine. `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` does **not** disable dashboard authentication. Get the URL for this AppHost from `aspire ps --format json --non-interactive`; in anonymous mode, `dashboardUrl` is the base URL without a login token.
+- Open the selected `dashboardUrl` in a Playwright browser context, assert the dashboard loaded, and exercise the changed UI. For example, in a Playwright test with `page` and `expect` available:
+
+	```typescript
+	await page.goto(dashboardUrl);
+	await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible();
+	```
+
+  After a dashboard rebuild, wait for `aspire-dashboard` again and reload the Playwright page to reconnect to the restarted dashboard.
