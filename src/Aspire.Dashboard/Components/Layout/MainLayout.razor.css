@@ -263,6 +263,14 @@
         fill: var(--colorBrandForeground1) !important;
     }
 
+    ::deep.layout > .desktop-nav-rail button.fluent-appbar-more-item:hover {
+        background-color: var(--colorNeutralBackground3);
+    }
+
+    ::deep.layout > .desktop-nav-rail button.fluent-appbar-more-item:hover svg {
+        fill: var(--colorBrandForeground1) !important;
+    }
+
     ::deep.layout > .desktop-nav-rail .fluent-appbar-item > a.active {
         background-color: color-mix(in srgb, var(--colorBrandBackground) 14%, transparent);
         box-shadow: inset 3px 0 0 var(--colorBrandBackground);
