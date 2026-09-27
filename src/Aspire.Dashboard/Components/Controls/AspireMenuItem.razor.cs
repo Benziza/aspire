@@ -4,7 +4,6 @@
 using System.Collections.Immutable;
 using Aspire.Dashboard.Model;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace Aspire.Dashboard.Components;
@@ -26,10 +25,6 @@ public partial class AspireMenuItem
             { "title", !string.IsNullOrEmpty(Item.Tooltip) ? Item.Tooltip : Item.Text ?? string.Empty }
         };
 
-    private RenderFragment? NestedMenuItems => Item.NestedMenuItems is { Count: > 0 } nestedItems
-        ? builder => RenderNestedMenuItems(builder, nestedItems)
-        : null;
-
     private Task HandleItemClicked()
     {
         return Item.Role is MenuItemRole.Checkbox or MenuItemRole.Radio
@@ -47,19 +42,6 @@ public partial class AspireMenuItem
     private Task HandleSecondaryActionClicked()
     {
         return OnSecondaryActionClicked.InvokeAsync(Item);
-    }
-
-    private void RenderNestedMenuItems(RenderTreeBuilder builder, IReadOnlyList<MenuButtonItem> nestedItems)
-    {
-        foreach (var nestedItem in nestedItems)
-        {
-            builder.OpenComponent<AspireMenuItem>(0);
-            builder.SetKey(nestedItem.RenderKey);
-            builder.AddAttribute(1, nameof(Item), nestedItem);
-            builder.AddAttribute(2, nameof(OnItemActivated), OnItemActivated);
-            builder.AddAttribute(3, nameof(OnSecondaryActionClicked), OnSecondaryActionClicked);
-            builder.CloseComponent();
-        }
     }
 
     private static string GetIconSlot(MenuItemRole? role) => role switch

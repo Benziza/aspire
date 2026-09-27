@@ -20,6 +20,20 @@ else if (Item.IsHeader)
 }
 else
 {
+    RenderFragment? nestedMenuItems = null;
+    if (Item.NestedMenuItems is { Count: > 0 } nestedItems)
+    {
+        nestedMenuItems = @<text>
+            @foreach (var nestedItem in nestedItems)
+            {
+                <AspireMenuItem @key="nestedItem.RenderKey"
+                                Item="nestedItem"
+                                OnItemActivated="OnItemActivated"
+                                OnSecondaryActionClicked="OnSecondaryActionClicked" />
+            }
+        </text>;
+    }
+
     <FluentMenuItem Id="@Item.Id"
                     Class="@Item.Class"
                     OnClick="HandleItemClicked"
@@ -29,7 +43,7 @@ else
                     Checked="@Item.Checked"
                     AdditionalAttributes="@AdditionalMenuItemAttributes"
                     Label="@Item.Text"
-                    MenuItems="@NestedMenuItems">
+                    MenuItems="@nestedMenuItems">
         @if (Item.Icon is not null)
         {
             <span slot="@GetIconSlot(Item.Role)">
