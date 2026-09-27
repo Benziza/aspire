@@ -201,11 +201,11 @@ after pointer input, restoring the upstream `:focus-visible` outline on keyboard
 input without changing actual focus. The modality listeners are removed on disposal.
 The track uses Hex1b's active-palette foreground/background blend at 35% opacity. The thumb
 uses that palette's foreground, so it remains contrasting in either theme.
-Markers use the Dashboard's brand foreground and error tokens at 65% opacity,
-restoring full opacity for increased contrast and forced colors. The track remains
+Markers use the selected terminal palette's purple and red ANSI colors at full
+opacity, with system colors in forced-color mode. The track remains
 translucent in both themes.
 
-Marker and tooltip colors are resolved in the Dashboard theme. Dashboard theme
+Tooltip colors are resolved in the Dashboard theme; marker colors follow the terminal palette. Dashboard theme
 changes and the `forced-colors` and `prefers-contrast` media queries recreate the
 snapshotted painter and replace the complete overlay configuration. Forced
 colors use resolved system colors, and increased contrast makes the track

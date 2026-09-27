@@ -73,9 +73,10 @@ function scrollbarConfiguration(state) {
                 color: forced ? color("CanvasText") : palette.foreground,
             },
             markers: {
-                color: color(forced ? "Highlight" : "var(--colorBrandForeground1)"),
-                errorColor: color(forced ? "LinkText" : "var(--error)"),
-                opacity: forced || state.moreContrast.matches ? 1 : 0.65,
+                // Markers sit on the terminal palette, which can differ from the Dashboard theme.
+                color: forced ? color("Highlight") : palette.ansi[5],
+                errorColor: forced ? color("LinkText") : palette.ansi[1],
+                opacity: 1,
             },
         });
         return {
