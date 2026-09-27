@@ -26,3 +26,15 @@ applyTo: "src/Aspire.Dashboard/**/*.{cs,razor,js}"
 
 - `public` keeps dependencies visible to component and test infrastructure, `required` expresses that the component cannot operate without the service, and `init` prevents reassignment after component activation.
 - Do not use non-public injected properties, mutable `set` accessors, or null-forgiving initializers such as `= null!;`. These weaken compile-time validation and hide missing dependencies when components are constructed in tests.
+
+## Local dashboard development
+
+- Playground AppHosts that add `Projects.Aspire_Dashboard` as the `aspire-dashboard` project resource expose a **Rebuild** command. After changing dashboard source, rebuild that resource instead of stopping and restarting the entire AppHost:
+
+	```powershell
+	aspire resource aspire-dashboard rebuild --apphost <apphost-path> --non-interactive
+	aspire wait aspire-dashboard --apphost <apphost-path> --non-interactive
+	```
+
+- Select the exact running AppHost path when multiple AppHosts exist. The rebuild stops the dashboard project, builds it, and starts it again; a brief dashboard browser disconnect is expected. Check the command result and wait for the resource to become healthy before testing the UI.
+- The built-in dashboard executable is not a project resource and does not expose this Rebuild command. If the AppHost or `Aspire.Hosting` code changed, restart the AppHost through the normal lifecycle workflow so it loads the new hosting code; rebuilding only the dashboard will not do that.
