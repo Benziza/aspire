@@ -61,7 +61,8 @@
                 @if (item.SecondaryActionIcon is not null)
                 {
                     <span class="aspire-menu-secondary-action-container" slot="end">
-                        <FluentButton Class="@($"aspire-menu-secondary-action{(item.IsSecondaryActionSelected ? " selected" : null)}")"
+                        <FluentButton Id="@($"{item.Id}-secondary-action")"
+                                      Class="@($"aspire-menu-secondary-action{(item.IsSecondaryActionSelected ? " selected" : null)}")"
                                       Appearance="ButtonAppearance.Transparent"
                                       Title="@item.SecondaryActionAriaLabel"
                                       AriaLabel="@item.SecondaryActionAriaLabel"

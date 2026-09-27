@@ -803,7 +803,7 @@ public partial class MainLayoutTests : DashboardTestContext
     }
 
     [Fact]
-    public void DashboardRunSelect_SortsHistoricalRunsByPinnedThenDateDescendingAndUpdatesOrderWhenPinned()
+    public void DashboardRunSelect_SortsHistoricalRunsAndRestoresPinFocusAfterReordering()
     {
         var currentRun = new DashboardRunDescriptor(
             RunId: "current",
@@ -852,7 +852,10 @@ public partial class MainLayoutTests : DashboardTestContext
         Assert.Equal("Learn about runs", items[^1].Text);
 
         var menuItems = cut.WaitForElements("fluent-menu-item");
-        Assert.Single(menuItems[3].QuerySelectorAll("fluent-button")).Click();
+        var pinButton = Assert.Single(menuItems[3].QuerySelectorAll("fluent-button"));
+        var pinId = pinButton.Id;
+        var priorFirstPinnedId = Assert.Single(menuItems[1].QuerySelectorAll("fluent-button")).Id;
+        pinButton.Click();
 
         expectedHistoricalTexts = historicalRuns
             .OrderByDescending(run => run.IsPinned)
@@ -863,6 +866,28 @@ public partial class MainLayoutTests : DashboardTestContext
         Assert.Equal(expectedHistoricalTexts, items.Skip(2).Take(historicalRuns.Length).Select(item => item.Text));
         Assert.All(items.Skip(2).Take(3), item => Assert.True(item.IsSecondaryActionSelected));
         Assert.False(items[5].IsSecondaryActionSelected);
+
+        menuItems = cut.WaitForElements("fluent-menu-item");
+        Assert.Equal(pinId, Assert.Single(menuItems[1].QuerySelectorAll("fluent-button")).Id);
+        Assert.Equal(priorFirstPinnedId, Assert.Single(menuItems[2].QuerySelectorAll("fluent-button")).Id);
+        Assert.Equal(
+            [pinId],
+            JSInterop.Invocations.Where(invocation => invocation.Identifier == "focusElement")
+                .Select(invocation => Assert.IsType<string>(Assert.Single(invocation.Arguments))));
+
+        Assert.Single(menuItems[1].QuerySelectorAll("fluent-button")).Click();
+
+        items = cut.FindComponent<AspireMenuButton>().Instance.Items;
+        Assert.Equal(
+            ["pinned-b", "pinned-a", "unpinned-b", "unpinned-a"],
+            DashboardRunSelect.GetSortedRuns(runStore.GetRuns()).Skip(1).Select(run => run.RunId));
+        Assert.All(items.Skip(2).Take(2), item => Assert.True(item.IsSecondaryActionSelected));
+        Assert.All(items.Skip(4).Take(2), item => Assert.False(item.IsSecondaryActionSelected));
+        Assert.Equal(pinId, Assert.Single(cut.WaitForElements("fluent-menu-item")[3].QuerySelectorAll("fluent-button")).Id);
+        Assert.Equal(
+            [pinId, pinId],
+            JSInterop.Invocations.Where(invocation => invocation.Identifier == "focusElement")
+                .Select(invocation => Assert.IsType<string>(Assert.Single(invocation.Arguments))));
     }
 
     [Fact]
