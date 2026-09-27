@@ -1,8 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+#pragma warning disable ASPIREPROJECTS001 // ProjectLaunchDefaultsAnnotation is experimental.
+
 using Aspire.Hosting.Resources;
+using Aspire.Hosting.Utils;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aspire.Hosting.Tests;
 
@@ -175,5 +180,35 @@ public class ResourceCommandAnnotationTests
 
         Assert.Equal(CommandStrings.RebuildName, rebuildCommand.DisplayName);
         Assert.Equal(CommandStrings.RebuildDescription, rebuildCommand.DisplayDescription);
+    }
+
+    [Theory]
+    [InlineData("aspire-dashboard", false)]
+    [InlineData("project", true)]
+    public void ProjectCommandCancellationToken_UsesAppHostLifetimeForDashboard(string resourceName, bool expectedCanceled)
+    {
+        using var builder = TestDistributedApplicationBuilder.Create();
+        using var app = builder.Build();
+        using var commandCancellation = new CancellationTokenSource();
+        commandCancellation.Cancel();
+
+        var projectResource = new ProjectResource(resourceName);
+        projectResource.Annotations.Add(new ProjectLaunchDefaultsAnnotation());
+        var context = new ExecuteCommandContext
+        {
+            ResourceName = resourceName,
+            Services = app.Services,
+            CancellationToken = commandCancellation.Token,
+            Arguments = new InteractionInputCollection([]),
+            Logger = NullLogger.Instance
+        };
+
+        var cancellationToken = CommandsConfigurationExtensions.GetCommandCancellationToken(context, projectResource);
+
+        Assert.Equal(expectedCanceled, cancellationToken.IsCancellationRequested);
+        if (!expectedCanceled)
+        {
+            Assert.Equal(app.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping, cancellationToken);
+        }
     }
 }
