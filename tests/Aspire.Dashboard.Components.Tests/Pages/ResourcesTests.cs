@@ -135,13 +135,12 @@ public partial class ResourcesTests : DashboardTestContext
 
         await cut.InvokeAsync(() => grid.Instance.SortByColumnAsync(nameColumn.Instance, DataGridSortDirection.Descending));
 
-        Assert.False(grid.Instance.SortByAscending);
+        Assert.False(Assert.Single(grid.Instance.SortColumns).Ascending);
         Assert.Equal("descending", cut.Find("th[col-index='1']").GetAttribute("aria-sort"));
 
         var request = new GridItemsProviderRequest<ResourceGridViewModel>
         {
-            SortByColumn = nameColumn.Instance,
-            SortByAscending = false,
+            SortColumns = [new(nameColumn.Instance, Ascending: false)],
         };
         var result = await cut.InvokeAsync(() => cut.Instance.GetData(request).AsTask());
 
