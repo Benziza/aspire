@@ -155,20 +155,6 @@ public partial class AspireMenu : FluentComponentBase
         }
     }
 
-    private Task HandleItemClicked(MenuButtonItem item)
-    {
-        return item.Role is MenuItemRole.Checkbox or MenuItemRole.Radio
-            ? Task.CompletedTask
-            : HandleItemActivatedAsync(item);
-    }
-
-    private Task HandleItemCheckedChanged(MenuButtonItem item, bool? isChecked)
-    {
-        return isChecked is true && item.Role is MenuItemRole.Checkbox or MenuItemRole.Radio
-            ? HandleItemActivatedAsync(item)
-            : Task.CompletedTask;
-    }
-
     private async Task HandleItemActivatedAsync(MenuButtonItem item)
     {
         await SetOpenAsync(false);
@@ -197,10 +183,6 @@ public partial class AspireMenu : FluentComponentBase
         if (OnSecondaryActionComplete.HasDelegate)
         {
             await OnSecondaryActionComplete.InvokeAsync();
-        }
-        else
-        {
-            StateHasChanged();
         }
     }
 
