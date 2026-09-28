@@ -185,7 +185,9 @@ mappings.Add(new XElement("packageSource",
 var restoreConfigPath = Path.Combine(restoreDirectory, "nuget.config");
 config.Save(restoreConfigPath);
 
-foreach (var argument in new[] { "restore", solutionPath, "--configfile", restoreConfigPath, "--disable-build-servers", "--verbosity", "quiet" })
+// A sibling graph can repopulate an evicted -dev package before NuGet checks another graph
+// for no-op restore. Reevaluate every graph, even when all package IDs/versions are unchanged.
+foreach (var argument in new[] { "restore", solutionPath, "--configfile", restoreConfigPath, "--force", "--disable-build-servers", "--verbosity", "quiet" })
 {
     startInfo.ArgumentList.Add(argument);
 }

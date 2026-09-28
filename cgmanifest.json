@@ -2986,7 +2986,7 @@
         "type": "nuget",
         "nuget": {
           "name": "opentelemetry.api.providerbuilderextensions",
-          "version": "1.17.0"
+          "version": "1.18.0"
         }
       }
     },
@@ -2995,7 +2995,7 @@
         "type": "nuget",
         "nuget": {
           "name": "opentelemetry.api",
-          "version": "1.17.0"
+          "version": "1.18.0"
         }
       }
     },
@@ -3004,7 +3004,7 @@
         "type": "nuget",
         "nuget": {
           "name": "opentelemetry.exporter.opentelemetryprotocol",
-          "version": "1.17.0"
+          "version": "1.18.0"
         }
       }
     },
@@ -3013,7 +3013,7 @@
         "type": "nuget",
         "nuget": {
           "name": "opentelemetry.extensions.hosting",
-          "version": "1.17.0"
+          "version": "1.18.0"
         }
       }
     },
@@ -3022,7 +3022,7 @@
         "type": "nuget",
         "nuget": {
           "name": "opentelemetry.instrumentation.aspnetcore",
-          "version": "1.17.0"
+          "version": "1.18.0"
         }
       }
     },
@@ -3031,7 +3031,7 @@
         "type": "nuget",
         "nuget": {
           "name": "opentelemetry.instrumentation.http",
-          "version": "1.17.0"
+          "version": "1.18.0"
         }
       }
     },
@@ -3040,7 +3040,7 @@
         "type": "nuget",
         "nuget": {
           "name": "opentelemetry.instrumentation.runtime",
-          "version": "1.17.0"
+          "version": "1.18.0"
         }
       }
     },
@@ -3049,7 +3049,7 @@
         "type": "nuget",
         "nuget": {
           "name": "opentelemetry",
-          "version": "1.17.0"
+          "version": "1.18.0"
         }
       }
     },

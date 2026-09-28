@@ -14,6 +14,16 @@ For each template:
 
 1. Updating the versions for non-Aspire packages referenced in all *.csproj* files isn't covered as part of this process. These package versions should be updated by our regular process for updating the versions of our dependencies.
 
+### Updating the component manifest
+
+Template changes must keep the repository-root [`cgmanifest.json`](../../cgmanifest.json) up to date. After rebuilding the managed packages, regenerate the manifest from the repository root and commit any resulting changes alongside the template changes:
+
+```powershell
+pwsh eng/scripts/update-template-cgmanifest.ps1 -Update
+```
+
+Use `-Configuration Release` if the packages were built in Release. Omit `-Update` to verify without modifying the manifest. GitHub CI and internal builds reject stale manifests. See [Template dependency manifest](../../docs/ci/template-component-governance.md) for build commands and dependency coverage.
+
 ### Updating localization files
 
 Build the templates package project to ensure localization files are updated to match all changes by running `dotnet pack` on the *./src/Aspire.ProjectTemplates/Aspire.ProjectTemplates.csproj* project, e.g.:

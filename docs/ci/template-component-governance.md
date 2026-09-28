@@ -17,7 +17,7 @@ Run the script without `-Update` to verify. Verification does not overwrite the 
 
 Repo-built package identities are excluded from the manifest because their versions vary by build. They are still restored from the current build's package feed, and **all external transitives remain included**. Exclusion matches the exact ID/version pairs in the build's shipping nupkgs, not all packages with an `Aspire.*` prefix. The repository's approved external feeds are retained. Neither the repository NuGet configuration nor the user's template hive is modified.
 
-Restore uses a private extraction cache, refreshing the locally built identities on each run so repeated `-dev` versions cannot reuse stale packages. The normal NuGet cache serves as a read-only package source for external dependencies. This preserves package reuse without modifying the user's cache.
+Restore uses a private extraction cache, refreshing the locally built identities on each run so repeated `-dev` versions cannot reuse stale packages. Each graph is force-reevaluated: a sibling graph repopulating the shared cache must not make stale assets appear up to date. The normal NuGet cache serves as a read-only package source for external dependencies. This preserves package reuse without modifying the user's cache.
 
 ## CI and no-op behavior
 
