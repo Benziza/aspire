@@ -31,18 +31,6 @@ applyTo: "src/Aspire.Dashboard/**/*.{cs,razor,js}"
 
 ## Automated local development testing
 
-### Rebuilding the dashboard
-
-- When the dashboard is running in an AppHost as the `aspire-dashboard` project resource (`Projects.Aspire_Dashboard`) and **only the dashboard project changed**, use its **Rebuild** command instead of restarting the whole AppHost:
-
-	```powershell
-	aspire resource aspire-dashboard rebuild --apphost <apphost-path> --non-interactive
-	aspire wait aspire-dashboard --apphost <apphost-path> --non-interactive
-	```
-
-- Select the exact running AppHost path when multiple AppHosts exist. The rebuild stops the dashboard project, builds it, and starts it again; a brief dashboard browser disconnect is expected. Check the command result and wait for the resource to become healthy before testing the UI.
-- The built-in dashboard executable is not a project resource and does not expose this Rebuild command. If the AppHost, `Aspire.Hosting`, or **any other project** changed, restart the AppHost through the normal lifecycle workflow instead of only rebuilding the dashboard; the running AppHost will not load those changes from a dashboard rebuild.
-
 ### Browser verification with Playwright
 
 - Start the exact AppHost using the normal lifecycle workflow and wait for `aspire-dashboard` to be healthy before opening it in Playwright. Do not guess the dashboard port. Choose one of these local-development authentication approaches:
@@ -63,4 +51,14 @@ applyTo: "src/Aspire.Dashboard/**/*.{cs,razor,js}"
 	await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible();
 	```
 
-  After a dashboard rebuild, wait for `aspire-dashboard` again and reload the Playwright page to reconnect to the restarted dashboard.
+### Rebuilding the dashboard
+
+- When the dashboard is running in an AppHost as the `aspire-dashboard` project resource (`Projects.Aspire_Dashboard`) and **only the dashboard project changed**, use its **Rebuild** command instead of restarting the whole AppHost:
+
+	```powershell
+	aspire resource aspire-dashboard rebuild --apphost <apphost-path> --non-interactive
+	aspire wait aspire-dashboard --apphost <apphost-path> --non-interactive
+	```
+
+- Select the exact running AppHost path when multiple AppHosts exist. The rebuild stops the dashboard project, builds it, and starts it again; a brief dashboard browser disconnect is expected. Check the command result and wait for the resource to become healthy before testing the UI. Reload the Playwright page to reconnect to the restarted dashboard.
+- The built-in dashboard executable is not a project resource and does not expose this Rebuild command. If the AppHost, `Aspire.Hosting`, or **any other project** changed, restart the AppHost through the normal lifecycle workflow instead of only rebuilding the dashboard; the running AppHost will not load those changes from a dashboard rebuild.
