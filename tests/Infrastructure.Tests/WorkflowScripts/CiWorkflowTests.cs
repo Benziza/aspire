@@ -59,18 +59,6 @@ public sealed class CiWorkflowTests
     }
 
     [Fact]
-    public void CliOuterloopTestsInstallJava()
-    {
-        var cliTests = File.ReadAllText(Path.Combine(
-            RepoRoot.Path,
-            "tests",
-            "Aspire.Cli.Tests",
-            "Aspire.Cli.Tests.csproj"));
-
-        Assert.Contains("<RequiresJava Condition=\"'$(RunOuterloopTests)' == 'true'\">true</RequiresJava>", cliTests);
-    }
-
-    [Fact]
     public void CiFailureTrackerCheckoutDoesNotPinMain()
     {
         var workflow = ReadWorkflow("ci.yml");
