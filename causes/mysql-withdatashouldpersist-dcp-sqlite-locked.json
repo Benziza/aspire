@@ -1,0 +1,16 @@
+{
+  "id": "mysql-withdatashouldpersist-dcp-sqlite-locked",
+  "type": "flaky-test",
+  "title": "Flaky: MySqlFunctionalTests.WithDataShouldPersistStateBetweenUsages times out because DCP state.sqlite3 is locked (SQLITE_BUSY)",
+  "test_name": "Aspire.Hosting.MySql.Tests.MySqlFunctionalTests.WithDataShouldPersistStateBetweenUsages(useVolume: False)",
+  "error_pattern": "Polly.Timeout.TimeoutRejectedException : The operation didn't complete within the allowed timeout of '00:01:00'.\n---- System.Threading.Tasks.TaskCanceledException : A task was canceled.\nDCP controller host exited unexpectedly with exit code 1: failed to initialize state store: could not configure state store database '/home/runner/.dcp/state/state.sqlite3': could not enable SQLite WAL mode: database is locked (5) (SQLITE_BUSY)",
+  "occurrences": [
+    {
+      "run_id": 36428029876,
+      "run_url": "https://github.com/microsoft/aspire/actions/runs/36428029876",
+      "job": "Tests / No-package tests (regular, Aspire.Hosting.MySql.Tests, Hosting.MySql, Hosting.MySql, tests/Aspire... / Hosting.MySql (ubuntu-latest)",
+      "pr_number": 0,
+      "observed_at": "2026-09-28T14:07:00Z"
+    }
+  ]
+}
