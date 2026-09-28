@@ -4,13 +4,11 @@
 @inject IStringLocalizer<Dialogs> DialogsLoc
 @inherits LayoutComponentBase
 
-<div class="layout @(_isNavMenuExpanded ? "nav-expanded" : "nav-collapsed") @(!RunSelection.SelectedRun.IsCurrent ? "historical-run" : null)" style="@(_isNavMenuOpen ? "overflow: hidden;" : string.Empty)">
+<div class="layout @(!RunSelection.SelectedRun.IsCurrent ? "historical-run" : null)" style="@(_isNavMenuOpen ? "overflow: hidden;" : string.Empty)">
     @if (ViewportInformation.IsDesktop)
     {
-        @* Full-width top header. The Aspire logo leads the header so the logo, app name, and page
-           title form a single brand lockup pinned to the top-left. Because the header spans both grid
-           columns (it is no longer confined to the column beside the rail), the lockup keeps a fixed
-           left edge when the nav rail below collapses/expands instead of shifting with the rail width. *@
+        @* Full-width top header. The brand lockup (logo + app name) leads, followed by the top-level
+           navigation, so the header is the single place to switch between the dashboard's main views. *@
         <header>
             <div class="brand-logo-container">
                 <a href="/" class="logo"
@@ -22,9 +20,7 @@
             <a href="/" class="application-name">
                 <ApplicationName/>
             </a>
-            <div class="page-title-slot">
-                <SectionOutlet SectionName="@DashboardUIHelpers.PageTitleTopBarSection" />
-            </div>
+            <DesktopNavMenu />
             <div class="flex-filler"></div>
             @if (RunStore.SupportsRunSelection)
             {
@@ -73,29 +69,6 @@
             </FluentButton>
             <UserProfile/>
         </header>
-
-        @* The nav rail is a flex column so DesktopNavMenu fills the available space while the collapse/expand
-           toggle stays pinned to the bottom, matching the common sidebar pattern. Toggle state/persistence
-           still lives in MainLayout. *@
-        <div class="desktop-nav-rail">
-            <DesktopNavMenu/>
-            <FluentButton Class="nav-toggle-button nav-toggle-bottom"
-                          Appearance="ButtonAppearance.Default" OnClick="@ToggleNavMenuExpandedAsync"
-                          Title="@(_isNavMenuExpanded ? Loc[nameof(Layout.NavMenuToggleCollapse)] : Loc[nameof(Layout.NavMenuToggleExpand)])"
-                          aria-label="@(_isNavMenuExpanded ? Loc[nameof(Layout.NavMenuToggleCollapse)] : Loc[nameof(Layout.NavMenuToggleExpand)])">
-                <span class="nav-toggle-content">
-                    @* The glyph mirrors the action the toggle performs so it reads as a real collapse/expand
-                       control rather than a static hamburger: when the rail is expanded, show the "contract"
-                       panel icon (arrow pointing into the panel = collapse); when collapsed, show the "expand"
-                       panel icon (arrow pointing out = expand). This stays in sync with the dynamic Title/aria-label.
-                       No visible text label: the icon plus the dynamic Title/aria-label carry the meaning, and a
-                       written "Collapse sidebar" beside it read as redundant chrome (review feedback). *@
-                    <FluentIcon Value="@(_isNavMenuExpanded
-                        ? new Icons.Regular.Size24.PanelLeftContract()
-                        : (Icon)new Icons.Regular.Size24.PanelLeftExpand())" Color="Color.Default"/>
-                </span>
-            </FluentButton>
-        </div>
     }
     else
     {

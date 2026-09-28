@@ -1,0 +1,431 @@
+﻿@namespace Aspire.Dashboard.Components.Layout
+@inherits LayoutComponentBase
+@layout MainLayout
+@using Aspire.Dashboard.Components.ResourcesGridColumns
+@using Aspire.Dashboard.Model
+@using Aspire.Dashboard.Resources
+@using Humanizer
+
+@if (!IsResourcePaneEnabled)
+{
+    @Body
+}
+else
+{
+    var paneRows = GetPaneRows().ToList();
+    var isDesktop = ViewportInformation.IsDesktop;
+    var showCollapsedPane = isDesktop && _isPaneCollapsed;
+
+    <div class="resources-layout @(showCollapsedPane ? "pane-collapsed" : string.Empty) @(!isDesktop && _isDrawerOpen ? "drawer-open" : string.Empty)"
+         style="@GetLayoutStyle()"
+         @ref="_layoutElement">
+        @if (!isDesktop && _isDrawerOpen)
+        {
+            <div class="resource-pane-scrim" @onclick="CloseDrawer"></div>
+        }
+
+        <aside class="resource-pane" aria-label="@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneLandmark)]" hidden="@(!isDesktop && !_isDrawerOpen)">
+            <div class="resource-pane-head">
+                @if (!showCollapsedPane)
+                {
+                    <FluentTextInput TextInputType="TextInputType.Search"
+                                     Placeholder="@ControlsStringsLoc[nameof(ControlsStrings.FilterPlaceholder)]"
+                                     aria-label="@ControlsStringsLoc[nameof(ControlsStrings.FilterPlaceholder)]"
+                                     Class="resource-pane-search"
+                                     Immediate="true"
+                                     ImmediateDelay="@FluentUIExtensions.InputDelay"
+                                     Name="resource-pane-search"
+                                     AutoComplete="off"
+                                     @bind-Value="_filter.TextFilter">
+                        <StartTemplate>
+                            <FluentIcon Value="@(new Icons.Regular.Size16.Search())" Color="Color.Primary" />
+                        </StartTemplate>
+                    </FluentTextInput>
+
+                    <FluentButton id="@FilterButtonId"
+                                  Class="resource-pane-button"
+                                  Appearance="@(NoFiltersSet ? ButtonAppearance.Default : ButtonAppearance.Primary)"
+                                  IconOnly="true"
+                                  IconStart="@(new Icons.Regular.Size16.Filter())"
+                                  OnClick="@(() => _isFilterPopupVisible = !_isFilterPopupVisible)"
+                                  Title="@(NoFiltersSet ? ResourcesLoc[nameof(Dashboard.Resources.Resources.ResourcesNotFiltered)] : ResourcesLoc[nameof(Dashboard.Resources.Resources.ResourcesFiltered)])"
+                                  aria-label="@(NoFiltersSet ? ResourcesLoc[nameof(Dashboard.Resources.Resources.ResourcesNotFiltered)] : ResourcesLoc[nameof(Dashboard.Resources.Resources.ResourcesFiltered)])" />
+                }
+
+                @if (isDesktop)
+                {
+                    <FluentButton Class="resource-pane-button"
+                                  Appearance="ButtonAppearance.Default"
+                                  IconOnly="true"
+                                  IconStart="@(showCollapsedPane ? new Icons.Regular.Size16.PanelLeftExpand() : new Icons.Regular.Size16.PanelLeftContract())"
+                                  OnClick="TogglePaneCollapsedAsync"
+                                  Title="@(showCollapsedPane ? Loc[nameof(Dashboard.Resources.Layout.ResourcePaneExpand)] : Loc[nameof(Dashboard.Resources.Layout.ResourcePaneCollapse)])"
+                                  aria-label="@(showCollapsedPane ? Loc[nameof(Dashboard.Resources.Layout.ResourcePaneExpand)] : Loc[nameof(Dashboard.Resources.Layout.ResourcePaneCollapse)])"
+                                  aria-expanded="@((!showCollapsedPane).ToString().ToLowerInvariant())" />
+                }
+                else
+                {
+                    <FluentButton Class="resource-pane-button"
+                                  Appearance="ButtonAppearance.Transparent"
+                                  IconOnly="true"
+                                  IconStart="@(new Icons.Regular.Size16.Dismiss())"
+                                  OnClick="CloseDrawer"
+                                  Title="@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneClose)]"
+                                  aria-label="@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneClose)]" />
+                }
+            </div>
+
+            @if (!showCollapsedPane)
+            {
+                <div class="resource-pane-filter-popup-container">
+                    <FluentPopover AnchorId="@FilterButtonId"
+                                   @bind-Opened="_isFilterPopupVisible"
+                                   Class="resources-filter-popup">
+                        <ResourceFilters ResourceStates="@_filter.ResourceStatesToVisibility"
+                                         ResourceTypes="@_filter.ResourceTypesToVisibility"
+                                         ResourceHealthStates="@_filter.ResourceHealthStatusesToVisibility"
+                                         OnAllFilterVisibilityCheckedChangedAsync="@OnAllFilterVisibilityCheckedChangedAsync"
+                                         OnResourceFilterVisibilityChangedAsync="@OnResourceFilterVisibilityChangedAsync" />
+                    </FluentPopover>
+                </div>
+
+                var stateCounts = GetStateCounts();
+                @if (stateCounts.Count > 1)
+                {
+                    <div class="resource-pane-states" role="group" aria-label="@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneStateFilters)]">
+                        @foreach (var stateCount in stateCounts)
+                        {
+                            var isSelected = IsStateChipSelected(stateCount.State);
+                            var stateText = string.IsNullOrEmpty(stateCount.State) ? ColumnsLoc[nameof(Columns.UnknownStateLabel)].Value : stateCount.State.Humanize();
+                            <button type="button"
+                                    class="state-chip @(isSelected ? "selected" : string.Empty)"
+                                    aria-pressed="@(isSelected.ToString().ToLowerInvariant())"
+                                    @onclick="@(() => ToggleStateChip(stateCount.State))">
+                                <span class="state-dot @GetStateClass(stateCount.Example)"></span>
+                                @stateText
+                                <span class="state-chip-count">@stateCount.Count</span>
+                            </button>
+                        }
+                    </div>
+                }
+            }
+
+            <nav class="resource-pane-list" aria-label="@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneLandmark)]">
+                @if (!_isLoaded)
+                {
+                    <div class="resource-pane-message">
+                        <FluentSpinner Size="SpinnerSize.Small" />
+                    </div>
+                }
+                else if (paneRows.Count == 0 && _telemetryOnlyResources.Count == 0)
+                {
+                    <div class="resource-pane-message">@ResourcesLoc[nameof(Dashboard.Resources.Resources.ResourcesNoResources)]</div>
+                }
+
+                @foreach (var row in paneRows)
+                {
+                    var resource = row.Resource;
+                    var resourceName = GetResourceName(resource);
+                    var isSelected = IsSelected(resourceName);
+                    var stateViewModel = ResourceStateViewModel.GetStateViewModel(resource, ColumnsLoc);
+                    var errorCount = GetUnviewedErrorCount(resource);
+
+                    <div class="resource-row @(isSelected ? "selected" : string.Empty)" @key="resource.Name">
+                        <a class="resource-row-link"
+                           href="@GetRowUrl(resourceName)"
+                           style="@(showCollapsedPane || row.Depth == 0 ? null : $"--resource-row-depth: {row.Depth}")"
+                           aria-current="@GetRowAriaCurrent(isSelected)"
+                           title="@($"{resource.ResourceType}: {resourceName}")"
+                           @onclick="@(e => OnRowClickAsync(e, resourceName))"
+                           @onclick:preventDefault="true">
+                            <span class="resource-row-icon">
+                                <FluentIcon Width="16px"
+                                            Color="Color.Custom"
+                                            CustomColor="@ColorGenerator.Instance.GetColorVariableByKey(resourceName)"
+                                            Value="@ResourceIconHelpers.GetIconForResource(IconResolver, resource, IconSize.Size16)" />
+                                @if (showCollapsedPane)
+                                {
+                                    <span class="state-dot resource-row-icon-state @GetStateClass(resource)"></span>
+                                }
+                            </span>
+                            @if (!showCollapsedPane)
+                            {
+                                <span class="resource-row-text">
+                                    <span class="resource-row-name"><FluentHighlighter HighlightedText="@_filter.TextFilter" Text="@resourceName" /></span>
+                                    <span class="resource-row-sub">
+                                        <span class="state-dot @GetStateClass(resource)"></span>
+                                        <span>@stateViewModel.Text</span>
+                                        <span class="resource-row-sep" aria-hidden="true">·</span>
+                                        <span class="resource-row-type">@resource.ResourceType</span>
+                                    </span>
+                                </span>
+                                @if (errorCount > 0)
+                                {
+                                    <span class="error-badge" title="@string.Format(CultureInfo.CurrentCulture, Loc[nameof(Dashboard.Resources.Layout.ResourcePaneUnviewedErrors)], errorCount)">@errorCount</span>
+                                }
+                            }
+                        </a>
+                        @if (!showCollapsedPane && row.Children.Count > 0)
+                        {
+                            <button type="button"
+                                    class="resource-row-toggle @(row.IsCollapsed ? "collapsed" : string.Empty)"
+                                    aria-label="@ControlsStringsLoc[nameof(ControlsStrings.ToggleNesting)]"
+                                    aria-expanded="@((!row.IsCollapsed).ToString().ToLowerInvariant())"
+                                    @onclick="@(() => OnToggleCollapseAsync(row))">
+                                <FluentIcon Value="@(new Icons.Regular.Size12.ChevronDown())" Color="Color.Default" />
+                            </button>
+                        }
+                    </div>
+                }
+
+                @if (_telemetryOnlyResources.Count > 0)
+                {
+                    @if (!showCollapsedPane)
+                    {
+                        <div class="resource-pane-group">@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneTelemetryOnlyGroup)]</div>
+                    }
+                    @foreach (var telemetryResource in _telemetryOnlyResources)
+                    {
+                        var telemetryResourceName = telemetryResource.Name;
+                        var isSelected = IsSelected(telemetryResourceName);
+                        <div class="resource-row @(isSelected ? "selected" : string.Empty)" @key="@($"otlp:{telemetryResourceName}")">
+                            <a class="resource-row-link"
+                               href="@GetRowUrl(telemetryResourceName)"
+                               aria-current="@GetRowAriaCurrent(isSelected)"
+                               title="@telemetryResourceName"
+                               @onclick="@(e => OnRowClickAsync(e, telemetryResourceName))"
+                               @onclick:preventDefault="true">
+                                <span class="resource-row-icon">
+                                    <FluentIcon Width="16px"
+                                                Color="Color.Custom"
+                                                CustomColor="@ColorGenerator.Instance.GetColorVariableByKey(telemetryResourceName)"
+                                                Value="@(new Icons.Regular.Size16.DataUsage())" />
+                                </span>
+                                @if (!showCollapsedPane)
+                                {
+                                    <span class="resource-row-text">
+                                        <span class="resource-row-name"><FluentHighlighter HighlightedText="@_filter.TextFilter" Text="@telemetryResourceName" /></span>
+                                        <span class="resource-row-sub">@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneTelemetryOnly)]</span>
+                                    </span>
+                                }
+                            </a>
+                        </div>
+                    }
+                }
+            </nav>
+
+            @if (!showCollapsedPane)
+            {
+                <div class="resource-pane-foot">
+                    <span>@string.Format(CultureInfo.CurrentCulture, paneRows.Count == 1 ? Loc[nameof(Dashboard.Resources.Layout.ResourcePaneCountSingular)] : Loc[nameof(Dashboard.Resources.Layout.ResourcePaneCountPlural)], paneRows.Count)</span>
+                    <AspireMenuButton ButtonAppearance="ButtonAppearance.Transparent"
+                                      Icon="@(new Icons.Regular.Size16.MoreHorizontal())"
+                                      ItemsProvider="@(() => _paneMenuItems)"
+                                      Title="@ResourcesLoc[nameof(Dashboard.Resources.Resources.ResourcesChangeViewOptions)]" />
+                </div>
+            }
+
+            @if (isDesktop && !showCollapsedPane)
+            {
+                @* Pointer and keyboard handling is registered by ResourcesLayout.razor.js. *@
+                <div class="resource-pane-resizer"
+                     role="separator"
+                     tabindex="0"
+                     aria-orientation="vertical"
+                     aria-label="@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneResize)]"
+                     aria-valuemin="@MinimumPaneWidthPx"
+                     aria-valuemax="@MaximumPaneWidthPx"
+                     aria-valuenow="@(_paneWidth ?? DefaultPaneWidthPx)"></div>
+            }
+        </aside>
+
+        <section class="resource-content">
+            <header class="resource-header">
+                <div class="resource-header-row">
+                    @if (!isDesktop)
+                    {
+                        <FluentButton Class="resource-pane-open-button"
+                                      Appearance="ButtonAppearance.Transparent"
+                                      IconOnly="true"
+                                      IconStart="@(new Icons.Regular.Size20.TextBulletListLtr())"
+                                      OnClick="OpenDrawer"
+                                      Title="@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneOpen)]"
+                                      aria-label="@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneOpen)]" />
+                    }
+
+                    @if (SelectedResource is { } selected)
+                    {
+                        var selectedName = GetResourceName(selected);
+                        var selectedState = ResourceStateViewModel.GetStateViewModel(selected, ColumnsLoc);
+                        <span class="resource-header-icon">
+                            <FluentIcon Width="24px"
+                                        Color="Color.Custom"
+                                        CustomColor="@ColorGenerator.Instance.GetColorVariableByKey(selectedName)"
+                                        Value="@ResourceIconHelpers.GetIconForResource(IconResolver, selected, IconSize.Size24)" />
+                        </span>
+                        <div class="resource-header-text">
+                            <div class="resource-header-title">
+                                <h1 class="resource-title">@selectedName</h1>
+                            </div>
+                            <div class="resource-header-meta">
+                                <span class="state-pill @GetStateClass(selected)">
+                                    <FluentIcon Value="@selectedState.Icon" Width="12px" Color="Color.Custom" CustomColor="currentColor" />
+                                    @selectedState.Text
+                                </span>
+                                <span>@selected.ResourceType</span>
+                                @if (selected.StartTimeStamp is not null)
+                                {
+                                    <span class="resource-header-sep" aria-hidden="true">·</span>
+                                    <span>@Loc[nameof(Dashboard.Resources.Layout.ResourceHeaderStarted)] <StartTimeColumnDisplay Resource="@selected" /></span>
+                                }
+                                @{
+                                    var urls = ResourceUrlHelpers.GetUrls(selected, includeInternalUrls: false, includeNonEndpointUrls: true);
+                                }
+                                @if (urls.Count > 0)
+                                {
+                                    <span class="resource-header-sep" aria-hidden="true">·</span>
+                                    <span class="resource-header-urls">
+                                        <UrlsColumnDisplay Resource="@selected" HasMultipleReplicas="@HasMultipleReplicas(selected)" DisplayedUrls="@urls" />
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                        <div class="resource-header-actions">
+                            @foreach (var command in _highlightedCommands)
+                            {
+                                var commandTitle = !string.IsNullOrEmpty(command.GetDisplayDescription()) ? command.GetDisplayDescription() : command.GetDisplayName();
+                                <FluentButton Appearance="ButtonAppearance.Default"
+                                              Title="@commandTitle"
+                                              IconStart="@IconResolver.ResolveHighlightedCommandIcon(command.IconName, command.IconVariant)"
+                                              OnClick="@(() => ExecuteResourceCommandAsync(selected, command))"
+                                              Disabled="@(DashboardClient.IsReadOnly || command.State == CommandViewModelState.Disabled || DashboardCommandExecutor.IsExecuting(selected.Name, command.Name))">
+                                    @if (isDesktop)
+                                    {
+                                        @command.GetDisplayName()
+                                    }
+                                </FluentButton>
+                            }
+                            @if (_resourceMenuItems.Count > 0)
+                            {
+                                <AspireMenuButton ButtonAppearance="ButtonAppearance.Default"
+                                                  Icon="@(new Icons.Regular.Size16.MoreHorizontal())"
+                                                  ItemsProvider="@(() => _resourceMenuItems)"
+                                                  Title="@ControlsStringsLoc[nameof(ControlsStrings.ActionsButtonText)]" />
+                            }
+                        </div>
+                    }
+                    else if (SelectedTelemetryOnlyResource is { } telemetryOnly)
+                    {
+                        <span class="resource-header-icon">
+                            <FluentIcon Width="24px"
+                                        Color="Color.Custom"
+                                        CustomColor="@ColorGenerator.Instance.GetColorVariableByKey(telemetryOnly.Name)"
+                                        Value="@(new Icons.Regular.Size24.DataUsage())" />
+                        </span>
+                        <div class="resource-header-text">
+                            <div class="resource-header-title">
+                                <h1 class="resource-title">@telemetryOnly.Name</h1>
+                            </div>
+                            <div class="resource-header-meta">@Loc[nameof(Dashboard.Resources.Layout.ResourcePaneTelemetryOnly)]</div>
+                        </div>
+                    }
+                    else if (IsMultiSelection)
+                    {
+                        <span class="resource-header-icon">
+                            <FluentIcon Width="24px" Value="@(new Icons.Regular.Size24.Stack())" Color="Color.Primary" />
+                        </span>
+                        <div class="resource-header-text">
+                            <div class="resource-header-title">
+                                <h1 class="resource-title">@string.Format(CultureInfo.CurrentCulture, Loc[nameof(Dashboard.Resources.Layout.ResourceHeaderSelectedResources)], _selectedItems.Count)</h1>
+                            </div>
+                            <div class="resource-header-meta resource-header-selection">
+                                @foreach (var item in _selectedItems)
+                                {
+                                    <a class="resource-header-chip" href="@GetRowUrl(item.Name)" title="@item.Name">
+                                        <FluentIcon Width="14px"
+                                                    Color="Color.Custom"
+                                                    CustomColor="@ColorGenerator.Instance.GetColorVariableByKey(item.Name)"
+                                                    Value="@(item.Resource is { } itemResource ? ResourceIconHelpers.GetIconForResource(IconResolver, itemResource, IconSize.Size16) : new Icons.Regular.Size16.DataUsage())" />
+                                        @if (item.Resource is { } chipResource)
+                                        {
+                                            <span class="state-dot @GetStateClass(chipResource)"></span>
+                                        }
+                                        <span class="resource-header-chip-name">@item.Name</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+                    else if (SelectedResourceName is not null && _isLoaded)
+                    {
+                        <span class="resource-header-icon neutral">
+                            <FluentIcon Width="24px" Value="@(new Icons.Regular.Size24.QuestionCircle())" Color="Color.Default" />
+                        </span>
+                        <div class="resource-header-text">
+                            <div class="resource-header-title">
+                                <h1 class="resource-title">@SelectedResourceName</h1>
+                            </div>
+                            <div class="resource-header-meta">@Loc[nameof(Dashboard.Resources.Layout.ResourceHeaderNotFound)]</div>
+                        </div>
+                    }
+                    else if (CurrentTab == ResourceTab.Overview)
+                    {
+                        <span class="resource-header-icon neutral">
+                            <FluentIcon Width="24px" Value="@(new Icons.Regular.Size24.CursorClick())" Color="Color.Default" />
+                        </span>
+                        <div class="resource-header-text">
+                            <div class="resource-header-title">
+                                <h1 class="resource-title">@Loc[nameof(Dashboard.Resources.Layout.ResourceHeaderNoSelection)]</h1>
+                            </div>
+                            <div class="resource-header-meta">@Loc[nameof(Dashboard.Resources.Layout.ResourceHeaderNoSelectionDescription)]</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="resource-header-icon neutral">
+                            <FluentIcon Width="24px" Value="@(new Icons.Regular.Size24.AppsList())" Color="Color.Default" />
+                        </span>
+                        <div class="resource-header-text">
+                            <div class="resource-header-title">
+                                <h1 class="resource-title">@Loc[nameof(Dashboard.Resources.Layout.ResourceHeaderAllResources)]</h1>
+                            </div>
+                            <div class="resource-header-meta">@Loc[nameof(Dashboard.Resources.Layout.ResourceHeaderAllResourcesDescription)]</div>
+                        </div>
+                    }
+                </div>
+
+                <nav class="resource-tabs" aria-label="@Loc[nameof(Dashboard.Resources.Layout.ResourceTabsLandmark)]">
+                    @foreach (var tab in GetTabs())
+                    {
+                        @if (tab.Href is not null)
+                        {
+                            <a class="resource-tab @(tab.IsActive ? "active" : string.Empty)"
+                               href="@tab.Href"
+                               aria-current="@(tab.IsActive ? "page" : null)">
+                                <FluentIcon Value="@tab.Icon" Width="16px" Color="Color.Custom" CustomColor="currentColor" />
+                                <span>@tab.Text</span>
+                                @if (tab.ErrorCount > 0)
+                                {
+                                    <span class="resource-tab-count error">@tab.ErrorCount</span>
+                                }
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="resource-tab disabled" aria-disabled="true" title="@Loc[nameof(Dashboard.Resources.Layout.ResourceTabUnavailable)]">
+                                <FluentIcon Value="@tab.Icon" Width="16px" Color="Color.Custom" CustomColor="currentColor" />
+                                <span>@tab.Text</span>
+                            </span>
+                        }
+                    }
+                </nav>
+            </header>
+
+            <div class="resource-tab-body">
+                <CascadingValue Value="this" IsFixed="true">
+                    @Body
+                </CascadingValue>
+            </div>
+        </section>
+    </div>
+}

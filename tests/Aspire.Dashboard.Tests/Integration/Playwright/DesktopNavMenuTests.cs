@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Text.RegularExpressions;
 using Aspire.Dashboard.Tests.Integration.Playwright.Infrastructure;
 using Aspire.Dashboard.Utils;
 using Aspire.TestUtilities;
@@ -19,52 +20,76 @@ public sealed class DesktopNavMenuTests : PlaywrightTestsBase<DashboardServerFix
 
     [Fact]
     [OuterloopTest("Resource-intensive Playwright browser test")]
-    public async Task Toggle_ChangesLayoutAndPersistsExpandedState()
+    public async Task HeaderNav_NavigatesBetweenSectionsAndMarksActiveItem()
     {
         await RunTestAsync(async page =>
         {
             await page.GotoAsync("/");
-            await page.EvaluateAsync($"localStorage.setItem('{BrowserStorageKeys.NavMenuExpanded}', 'false')");
-            await page.ReloadAsync();
 
-            await AssertNavigationLayoutAsync(expanded: false);
+            var nav = page.Locator(".header-nav");
+            await AssertActiveItemAsync(Resources.Layout.NavMenuHomeTab);
 
-            await page.Locator(".nav-toggle-button").EvaluateAsync("element => element.click()");
-            await AssertNavigationLayoutAsync(expanded: true);
+            var navigationCount = await page.EvaluateAsync<int>("() => performance.getEntriesByType('navigation').length");
 
-            await page.ReloadAsync();
-            await AssertNavigationLayoutAsync(expanded: true);
+            await nav.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = Resources.Layout.NavMenuResourcesTab, Exact = true }).ClickAsync();
+            await page.WaitForURLAsync(url => new Uri(url).AbsolutePath.StartsWith("/resources", StringComparison.Ordinal));
+            await AssertActiveItemAsync(Resources.Layout.NavMenuResourcesTab);
 
-            async Task AssertNavigationLayoutAsync(bool expanded)
+            await nav.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = Resources.Layout.NavMenuParametersTab, Exact = true }).ClickAsync();
+            await page.WaitForURLAsync(url => new Uri(url).AbsolutePath == "/parameters");
+            await AssertActiveItemAsync(Resources.Layout.NavMenuParametersTab);
+
+            // Parameters and Graph share a page component, so switching between them must update the displayed view.
+            var gridContainer = page.Locator(".resources-grid-container");
+            var graphContainer = page.Locator(".resource-graph-container");
+            await Assertions.Expect(gridContainer).ToBeVisibleAsync();
+            await Assertions.Expect(graphContainer).ToBeHiddenAsync();
+
+            await nav.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = Resources.Layout.NavMenuGraphTab, Exact = true }).ClickAsync();
+            await page.WaitForURLAsync(url => new Uri(url).AbsolutePath == "/graph");
+            await AssertActiveItemAsync(Resources.Layout.NavMenuGraphTab);
+            await Assertions.Expect(graphContainer).ToBeVisibleAsync();
+            await Assertions.Expect(gridContainer).ToBeHiddenAsync();
+
+            await nav.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = Resources.Layout.NavMenuParametersTab, Exact = true }).ClickAsync();
+            await page.WaitForURLAsync(url => new Uri(url).AbsolutePath == "/parameters");
+            await AssertActiveItemAsync(Resources.Layout.NavMenuParametersTab);
+            await Assertions.Expect(gridContainer).ToBeVisibleAsync();
+            await Assertions.Expect(graphContainer).ToBeHiddenAsync();
+
+            // Header links are handled by Blazor's router, so switching sections doesn't reload the document.
+            Assert.Equal(navigationCount, await page.EvaluateAsync<int>("() => performance.getEntriesByType('navigation').length"));
+
+            async Task AssertActiveItemAsync(string expectedText)
             {
-                var layout = page.Locator(".layout");
-                await Assertions.Expect(layout).ToHaveClassAsync(expanded ? new System.Text.RegularExpressions.Regex("nav-expanded") : new System.Text.RegularExpressions.Regex("nav-collapsed"));
-
-                var values = await layout.EvaluateAsync<double[]>(
-                    """
-                    (layout, expanded) => {
-                        const rail = layout.querySelector('.desktop-nav-rail');
-                        const item = rail.querySelector('.fluent-appbar-item');
-                        const stack = item.querySelector('.fluent-appbaritem-stack');
-                        const label = item.querySelector('[part="label"]');
-
-                        return [
-                            rail.getBoundingClientRect().width,
-                            item.getBoundingClientRect().height,
-                            getComputedStyle(stack).flexDirection === (expanded ? 'row' : 'column') ? 1 : 0,
-                            label.getBoundingClientRect().width,
-                            label.getBoundingClientRect().height
-                        ];
-                    }
-                    """,
-                    expanded);
-
-                Assert.InRange(values[0], expanded ? 170 : 64, expanded ? 190 : 72);
-                Assert.InRange(values[1], 44, 52);
-                Assert.Equal(1, values[2]);
-                Assert.True(expanded ? values[3] > 20 : values[3] <= 1);
-                Assert.True(expanded ? values[4] > 10 : values[4] <= 1);
+                var activeItem = nav.Locator("a[aria-current='page']");
+                await Assertions.Expect(activeItem).ToHaveCountAsync(1);
+                await Assertions.Expect(activeItem).ToHaveTextAsync(expectedText);
             }
+        });
+    }
+
+    [Fact]
+    [OuterloopTest("Resource-intensive Playwright browser test")]
+    public async Task ResourcePaneToggle_ChangesLayoutAndPersistsCollapsedState()
+    {
+        await RunTestAsync(async page =>
+        {
+            await page.GotoAsync("/resources");
+            await page.EvaluateAsync($"localStorage.setItem('{BrowserStorageKeys.ResourcePaneCollapsed}', 'false')");
+            await page.ReloadAsync();
+
+            var layout = page.Locator(".resources-layout");
+            await Assertions.Expect(layout).Not.ToHaveClassAsync(new Regex("pane-collapsed"));
+
+            await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = Resources.Layout.ResourcePaneCollapse, Exact = true }).ClickAsync();
+            await Assertions.Expect(layout).ToHaveClassAsync(new Regex("pane-collapsed"));
+
+            await page.ReloadAsync();
+            await Assertions.Expect(layout).ToHaveClassAsync(new Regex("pane-collapsed"));
+
+            await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = Resources.Layout.ResourcePaneExpand, Exact = true }).ClickAsync();
+            await Assertions.Expect(layout).Not.ToHaveClassAsync(new Regex("pane-collapsed"));
         });
     }
 }

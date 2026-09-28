@@ -275,24 +275,6 @@ namespace Aspire.Dashboard.Resources {
                 return ResourceManager.GetString("NavMenuMetricsTab", resourceCulture);
             }
         }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Expand navigation labels.
-        /// </summary>
-        public static string NavMenuToggleExpand {
-            get {
-                return ResourceManager.GetString("NavMenuToggleExpand", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Collapse navigation to icons.
-        /// </summary>
-        public static string NavMenuToggleCollapse {
-            get {
-                return ResourceManager.GetString("NavMenuToggleCollapse", resourceCulture);
-            }
-        }
 
         /// <summary>
         ///   Looks up a localized string similar to Resources.
@@ -336,6 +318,240 @@ namespace Aspire.Dashboard.Resources {
         public static string MainLayoutLaunchAIAgents {
             get {
                 return ResourceManager.GetString("MainLayoutLaunchAIAgents", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Main navigation.
+        /// </summary>
+        public static string NavMenuLandmark {
+            get {
+                return ResourceManager.GetString("NavMenuLandmark", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Home.
+        /// </summary>
+        public static string NavMenuHomeTab {
+            get {
+                return ResourceManager.GetString("NavMenuHomeTab", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Parameters.
+        /// </summary>
+        public static string NavMenuParametersTab {
+            get {
+                return ResourceManager.GetString("NavMenuParametersTab", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Graph.
+        /// </summary>
+        public static string NavMenuGraphTab {
+            get {
+                return ResourceManager.GetString("NavMenuGraphTab", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resources.
+        /// </summary>
+        public static string ResourcePaneLandmark {
+            get {
+                return ResourceManager.GetString("ResourcePaneLandmark", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Expand resource list.
+        /// </summary>
+        public static string ResourcePaneExpand {
+            get {
+                return ResourceManager.GetString("ResourcePaneExpand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Collapse resource list.
+        /// </summary>
+        public static string ResourcePaneCollapse {
+            get {
+                return ResourceManager.GetString("ResourcePaneCollapse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Show resource list.
+        /// </summary>
+        public static string ResourcePaneOpen {
+            get {
+                return ResourceManager.GetString("ResourcePaneOpen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hide resource list.
+        /// </summary>
+        public static string ResourcePaneClose {
+            get {
+                return ResourceManager.GetString("ResourcePaneClose", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Filter by state.
+        /// </summary>
+        public static string ResourcePaneStateFilters {
+            get {
+                return ResourceManager.GetString("ResourcePaneStateFilters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} unviewed error logs.
+        /// </summary>
+        public static string ResourcePaneUnviewedErrors {
+            get {
+                return ResourceManager.GetString("ResourcePaneUnviewedErrors", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Telemetry only.
+        /// </summary>
+        public static string ResourcePaneTelemetryOnlyGroup {
+            get {
+                return ResourceManager.GetString("ResourcePaneTelemetryOnlyGroup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sends telemetry, not part of the app model.
+        /// </summary>
+        public static string ResourcePaneTelemetryOnly {
+            get {
+                return ResourceManager.GetString("ResourcePaneTelemetryOnly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} resource.
+        /// </summary>
+        public static string ResourcePaneCountSingular {
+            get {
+                return ResourceManager.GetString("ResourcePaneCountSingular", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} resources.
+        /// </summary>
+        public static string ResourcePaneCountPlural {
+            get {
+                return ResourceManager.GetString("ResourcePaneCountPlural", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Started.
+        /// </summary>
+        public static string ResourceHeaderStarted {
+            get {
+                return ResourceManager.GetString("ResourceHeaderStarted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource not found.
+        /// </summary>
+        public static string ResourceHeaderNotFound {
+            get {
+                return ResourceManager.GetString("ResourceHeaderNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All resources.
+        /// </summary>
+        public static string ResourceHeaderAllResources {
+            get {
+                return ResourceManager.GetString("ResourceHeaderAllResources", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No resource is selected, so data from every resource is shown. Select resources in the list to filter it..
+        /// </summary>
+        public static string ResourceHeaderAllResourcesDescription {
+            get {
+                return ResourceManager.GetString("ResourceHeaderAllResourcesDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource views.
+        /// </summary>
+        public static string ResourceTabsLandmark {
+            get {
+                return ResourceManager.GetString("ResourceTabsLandmark", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not available for this resource.
+        /// </summary>
+        public static string ResourceTabUnavailable {
+            get {
+                return ResourceManager.GetString("ResourceTabUnavailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Overview.
+        /// </summary>
+        public static string ResourceTabOverview {
+            get {
+                return ResourceManager.GetString("ResourceTabOverview", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} selected resources.
+        /// </summary>
+        public static string ResourceHeaderSelectedResources {
+            get {
+                return ResourceManager.GetString("ResourceHeaderSelectedResources", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No resource selected.
+        /// </summary>
+        public static string ResourceHeaderNoSelection {
+            get {
+                return ResourceManager.GetString("ResourceHeaderNoSelection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select a resource in the list. Ctrl+click (Cmd+click on macOS) selects several resources, Shift+click selects a range..
+        /// </summary>
+        public static string ResourceHeaderNoSelectionDescription {
+            get {
+                return ResourceManager.GetString("ResourceHeaderNoSelectionDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resize resource list.
+        /// </summary>
+        public static string ResourcePaneResize {
+            get {
+                return ResourceManager.GetString("ResourcePaneResize", resourceCulture);
             }
         }
     }

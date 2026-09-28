@@ -65,6 +65,10 @@ public sealed class AccessibilityTests : PlaywrightTestsBase<AccessibilityTests.
     [OuterloopTest("Resource-intensive Playwright browser test")]
     [InlineData("/", "Light")]
     [InlineData("/", "Dark")]
+    [InlineData("/resources/frontend", "Light")]
+    [InlineData("/resources/frontend", "Dark")]
+    [InlineData("/parameters", "Light")]
+    [InlineData("/parameters", "Dark")]
     [InlineData("/consolelogs", "Light")]
     [InlineData("/consolelogs", "Dark")]
     [InlineData("/structuredlogs", "Light")]
@@ -335,16 +339,14 @@ public sealed class AccessibilityTests : PlaywrightTestsBase<AccessibilityTests.
             $"html[data-theme='{theme.ToLowerInvariant()}']",
             new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached }).DefaultTimeout();
 
-        // Readiness signal that content has rendered. On desktop the page title teleports into the top
-        // bar as <h1 class="page-header"> (AspirePageContentLayout); at/below MobileCutoffPixelWidth
-        // that teleport doesn't happen, so fall back to the always-present <main> region.
+        // Readiness signal that content has rendered. On desktop every page renders an <h1> in the main
+        // region; some pages (e.g. the home page) keep it visually hidden, so wait for it to be attached
+        // rather than visible. At/below MobileCutoffPixelWidth the page title isn't rendered as an <h1>,
+        // so fall back to the always-present <main> region.
+        await Assertions.Expect(page.Locator("main.custom-body-content")).ToBeVisibleAsync();
         if (viewport.Width > MobileCutoffPixelWidth)
         {
-            await Assertions.Expect(page.Locator("h1.page-header")).ToBeVisibleAsync();
-        }
-        else
-        {
-            await Assertions.Expect(page.Locator("main.custom-body-content")).ToBeVisibleAsync();
+            await Assertions.Expect(page.Locator("main.custom-body-content h1").First).ToBeAttachedAsync();
         }
 
         await WaitForPageContentAsync(page, relativeUrl);
@@ -430,6 +432,8 @@ public sealed class AccessibilityTests : PlaywrightTestsBase<AccessibilityTests.
         var content = path switch
         {
             "" => page.GetByText("frontend", new PageGetByTextOptions { Exact = true }).First,
+            "/resources/frontend" => page.Locator("h1.resource-title", new PageLocatorOptions { HasText = "frontend" }),
+            "/parameters" => page.GetByText(Dashboard.Resources.Resources.ResourcesNoParameters, new PageGetByTextOptions { Exact = true }).First,
             "/consolelogs" => page.GetByText(ConsoleLogs.ConsoleLogsNoLogsFound, new PageGetByTextOptions { Exact = true }).First,
             "/structuredlogs" => page.GetByText(StructuredLogs.StructuredLogsNoLogsFound, new PageGetByTextOptions { Exact = true }).First,
             "/traces" => page.GetByText(Traces.TracesNoTraces, new PageGetByTextOptions { Exact = true }).First,

@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Globalization;
@@ -29,6 +29,7 @@ public partial class Metrics : IDisposable, IComponentWithTelemetry, IPageWithSe
 
     private List<OtlpResource> _resources = default!;
     private List<SelectViewModel<ResourceTypeDetails>> _resourceViewModels = default!;
+    private List<SelectViewModel<ResourceTypeDetails>>? _selectionResourceViewModels;
     private Subscription? _resourcesSubscription;
     private Subscription? _metricsSubscription;
 
@@ -38,6 +39,14 @@ public partial class Metrics : IDisposable, IComponentWithTelemetry, IPageWithSe
 
     [Parameter]
     public string? ResourceName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resources selected in the resource list when several resources are selected. The page
+    /// displays one of them at a time, and lets the user switch between them.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = DashboardUrls.ResourceSelectionQueryName)]
+    public string[]? SelectedResourceNames { get; set; }
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "meter")]
@@ -83,6 +92,13 @@ public partial class Metrics : IDisposable, IComponentWithTelemetry, IPageWithSe
 
     [CascadingParameter]
     public required ViewportInformation ViewportInformation { get; init; }
+
+    /// <summary>
+    /// The resources layout hosting this page. When present, the layout's resource pane selects the resource
+    /// and displays resource commands, so the page doesn't display its own resource selector.
+    /// </summary>
+    [CascadingParameter]
+    public ResourcesLayout? ResourcesLayout { get; set; }
 
     protected override void OnInitialized()
     {
@@ -146,7 +162,18 @@ public partial class Metrics : IDisposable, IComponentWithTelemetry, IPageWithSe
 
     public Task UpdateViewModelFromQueryAsync(MetricsViewModel viewModel)
     {
-        if (ResourceName is null && TryGetSingleResource() is { } r)
+        UpdateSelectionResources();
+        if (_selectionResourceViewModels is { Count: > 0 } selectionResources &&
+            (ResourceName is null || !selectionResources.Any(r => string.Equals(r.Name, ResourceName, StringComparisons.ResourceName))))
+        {
+            // Several resources are selected in the resource list. Metrics are displayed for one resource at a time,
+            // so display the first selected resource until the user picks another one.
+            PageViewModel.SelectedResource = selectionResources[0];
+            ResourceName = selectionResources[0].Name;
+            return this.AfterViewModelChangedAsync(_contentLayout, waitToApplyMobileChange: false);
+        }
+
+        if (ResourcesLayout is null && ResourceName is null && TryGetSingleResource() is { } r)
         {
             // If there is no resource selected and there is only one resource available, select it.
             PageViewModel.SelectedResource = r;
@@ -186,6 +213,23 @@ public partial class Metrics : IDisposable, IComponentWithTelemetry, IPageWithSe
         viewModel.Instruments = selectedInstance != null ? TelemetryRepository.GetInstrumentSummaries(selectedInstance.Value) : null;
     }
 
+    /// <summary>
+    /// Updates the resources the user can pick from when several resources are selected in the resource list.
+    /// </summary>
+    private void UpdateSelectionResources()
+    {
+        if (ResourcesLayout?.GetSelectionTelemetryKeys(SelectedResourceNames) is not { } selectionKeys)
+        {
+            _selectionResourceViewModels = null;
+            return;
+        }
+
+        // Groupings of replicas don't have a resource key. The resource list selects replicas individually.
+        _selectionResourceViewModels = _resourceViewModels
+            .Where(r => r.Id is { ReplicaSetName: not null } id && selectionKeys.Contains(id.GetResourceKey()))
+            .ToList();
+    }
+
     private void UpdateResources()
     {
         _resources = TelemetryRepository.GetResources();
@@ -199,6 +243,8 @@ public partial class Metrics : IDisposable, IComponentWithTelemetry, IPageWithSe
         {
             PageViewModel.SelectedResource = _resourceViewModels.Single();
         }
+
+        UpdateSelectionResources();
 
         UpdateSubscription();
     }
@@ -308,14 +354,17 @@ public partial class Metrics : IDisposable, IComponentWithTelemetry, IPageWithSe
 
     public string GetUrlFromSerializableViewModel(MetricsPageState serializable)
     {
+        // In the resources layout, the resource list owns the selection, so a resource remembered in the session
+        // doesn't replace it. With several selected resources, the page displays the resource the user picked.
+        var resourceName = ResourcesLayout is { IsMultiSelection: false } layout ? layout.SelectedResourceName : serializable.ResourceName;
         var url = DashboardUrls.MetricsUrl(
-            resource: serializable.ResourceName,
+            resource: resourceName,
             meter: serializable.MeterName,
             instrument: serializable.InstrumentName,
             duration: serializable.DurationMinutes,
             view: serializable.ViewKind);
 
-        return url;
+        return ResourcesLayout?.AddSelectionToUrl(url) ?? url;
     }
 
     private async Task OnViewChangedAsync(MetricViewKind newView)

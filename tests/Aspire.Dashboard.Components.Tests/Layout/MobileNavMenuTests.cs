@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Aspire.Dashboard.Components.Layout;
@@ -17,33 +17,41 @@ namespace Aspire.Dashboard.Components.Tests.Layout;
 public class MobileNavMenuTests : DashboardTestContext
 {
     [Fact]
-    public void Render_OpenMenu_CurrentPageHasSemanticAndVisualSelectedState()
-    {
-        var cut = RenderMobileNavMenu(DashboardUrls.StructuredLogsUrl());
-
-        AssertMenuItemIsActive(cut, Resources.StructuredLogs.StructuredLogsHeader);
-    }
-
-    [Fact]
-    public void Render_OpenMenu_CurrentPageWithQueryStringHasSemanticAndVisualSelectedState()
+    public void Render_OpenMenu_TelemetryPageWithQueryStringSelectsResourcesEntry()
     {
         var cut = RenderMobileNavMenu(DashboardUrls.StructuredLogsUrl(logLevel: "warning"));
-
-        AssertMenuItemIsActive(cut, Resources.StructuredLogs.StructuredLogsHeader);
-    }
-
-    [Fact]
-    public void Render_OpenMenu_ResourcesPageWithQueryStringHasSemanticAndVisualSelectedState()
-    {
-        var cut = RenderMobileNavMenu(DashboardUrls.ResourcesUrl(resource: "foo"));
 
         AssertMenuItemIsActive(cut, Resources.Layout.NavMenuResourcesTab);
     }
 
     [Fact]
+    public void Render_OpenMenu_ResourceOverviewPageHasSemanticAndVisualSelectedState()
+    {
+        var cut = RenderMobileNavMenu(DashboardUrls.ResourceOverviewUrl("foo"));
+
+        AssertMenuItemIsActive(cut, Resources.Layout.NavMenuResourcesTab);
+    }
+
+    [Fact]
+    public void Render_OpenMenu_HomePageHasSemanticAndVisualSelectedState()
+    {
+        var cut = RenderMobileNavMenu(DashboardUrls.HomeUrl());
+
+        AssertMenuItemIsActive(cut, Resources.Layout.NavMenuHomeTab);
+    }
+
+    [Fact]
+    public void Render_OpenMenu_ParametersPageHasSemanticAndVisualSelectedState()
+    {
+        var cut = RenderMobileNavMenu(DashboardUrls.ParametersUrl(hiddenStates: "Running"));
+
+        AssertMenuItemIsActive(cut, Resources.Layout.NavMenuParametersTab);
+    }
+
+    [Fact]
     public void MobileNavMenu_ConstrainedToRemainingViewport()
     {
-        var cut = RenderMobileNavMenu(DashboardUrls.ResourcesUrl());
+        var cut = RenderMobileNavMenu(DashboardUrls.HomeUrl());
 
         var menu = cut.Find("fluent-menu-list");
         var style = menu.GetAttribute("style");
@@ -67,7 +75,7 @@ public class MobileNavMenuTests : DashboardTestContext
     [Fact]
     public void Render_OpenMenu_InitializesKeyboardNavigationWithComponentReferenceAndMenuId()
     {
-        _ = RenderMobileNavMenu(DashboardUrls.ResourcesUrl());
+        _ = RenderMobileNavMenu(DashboardUrls.HomeUrl());
 
         var invocation = Assert.Single(JSInterop.Invocations, i => i.Identifier == "initializeMobileNavMenuKeyboardNavigation");
         Assert.Collection(
@@ -80,7 +88,7 @@ public class MobileNavMenuTests : DashboardTestContext
     public async Task CloseMobileNavMenuFromFocusLossAsync_ClosesMenuWithoutRestoringFocus()
     {
         var closeNavMenuCalled = false;
-        var cut = RenderMobileNavMenu(DashboardUrls.ResourcesUrl(), () => closeNavMenuCalled = true, isNavMenuOpen: false);
+        var cut = RenderMobileNavMenu(DashboardUrls.HomeUrl(), () => closeNavMenuCalled = true, isNavMenuOpen: false);
 
         await cut.InvokeAsync(cut.Instance.CloseMobileNavMenuFromFocusLossAsync);
 
@@ -93,7 +101,7 @@ public class MobileNavMenuTests : DashboardTestContext
     {
         JSInterop.SetupVoid("focusElement", _ => true).SetVoidResult();
         var closeNavMenuCalled = false;
-        var cut = RenderMobileNavMenu(DashboardUrls.ResourcesUrl(), () => closeNavMenuCalled = true, isNavMenuOpen: false);
+        var cut = RenderMobileNavMenu(DashboardUrls.HomeUrl(), () => closeNavMenuCalled = true, isNavMenuOpen: false);
 
         await cut.InvokeAsync(cut.Instance.CloseMobileNavMenuFromKeyboardAsync);
 

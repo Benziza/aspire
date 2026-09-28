@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Concurrent;
@@ -137,8 +137,23 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
     [CascadingParameter]
     public required ViewportInformation ViewportInformation { get; init; }
 
+    /// <summary>
+    /// The resources layout hosting this page. When present, the layout's resource pane selects the resource
+    /// and displays resource commands, so the page doesn't display its own resource selector.
+    /// </summary>
+    [CascadingParameter]
+    public ResourcesLayout? ResourcesLayout { get; set; }
+
     [Parameter]
     public string? ResourceName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resources selected in the resource list when several resources are selected. Their console
+    /// logs are displayed together, like the logs of all resources.
+    /// </summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = DashboardUrls.ResourceSelectionQueryName)]
+    public string[]? SelectedResourceNames { get; set; }
 
     private record struct LogEntryToWrite(string ResourceName, LogEntry LogEntry, int? LineNumber);
 
@@ -155,6 +170,7 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
     private Task? _logEntryChannelReaderTask;
     private readonly ConcurrentDictionary<string, ConsoleLogsSubscription> _consoleLogsSubscriptions = new(StringComparers.ResourceName);
     private bool _isSubscribedToAll;
+    private IReadOnlyList<string>? _allResourcesSelection;
     internal LogEntries _logEntries = null!;
     private readonly object _updateLogsLock = new object();
     private CancellationTokenSource? _showNoLogsMessageCts;
@@ -428,9 +444,19 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
     protected override async Task OnParametersSetAsync()
     {
         Logger.LogDebug("Initializing console logs view model.");
-        if (await this.InitializeViewModelAsync())
+
+        // In the resources layout, the resource list owns the selection. The page doesn't restore a resource
+        // remembered in the session, which could differ from the selection.
+        if (ResourcesLayout is null)
         {
-            return;
+            if (await this.InitializeViewModelAsync())
+            {
+                return;
+            }
+        }
+        else
+        {
+            await UpdateViewModelFromQueryAsync(PageViewModel);
         }
 
         UpdateMenuButtons();
@@ -442,9 +468,16 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
         // Check if subscription needs to change
         var needsNewSubscription = false;
 
+        var allResourcesSelection = SelectedResourceNames is { Length: > 1 } && ResourcesLayout is not null ? SelectedResourceNames : null;
+
         if (isAllSelected != _isSubscribedToAll)
         {
             Logger.LogDebug("Switching to or from 'All' mode");
+            needsNewSubscription = true;
+        }
+        else if (isAllSelected && !(_allResourcesSelection ?? []).SequenceEqual(allResourcesSelection ?? [], StringComparers.ResourceName))
+        {
+            Logger.LogDebug("Switching the resources displayed in 'All' mode");
             needsNewSubscription = true;
         }
         else if (!string.IsNullOrEmpty(selectedResourceName) && !_consoleLogsSubscriptions.ContainsKey(selectedResourceName))
@@ -452,6 +485,8 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
             Logger.LogDebug("Switching to different single resource: {ResourceName}", selectedResourceName);
             needsNewSubscription = true;
         }
+
+        _allResourcesSelection = allResourcesSelection;
 
         if (needsNewSubscription)
         {
@@ -588,12 +623,20 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
         if (isAllSelected)
         {
             return _resourceByName.Values
-                .Where(resource => !resource.IsResourceHidden(_showHiddenResources))
+                .Where(IsIncludedInAllResources)
                 .Any(resource => resource.ConsoleLogsLoaded);
         }
 
         return selectedResource?.ConsoleLogsLoaded == true;
     }
+
+    /// <summary>
+    /// Gets a value indicating whether a resource's console logs are displayed in 'All' mode. When several resources
+    /// are selected in the resource list, only they are displayed.
+    /// </summary>
+    private bool IsIncludedInAllResources(ResourceViewModel resource) => _allResourcesSelection is { } selection
+        ? ResourcesLayout.IsResourceInSelection(resource, selection)
+        : !resource.IsResourceHidden(_showHiddenResources);
 
     private string GetNoLogsMessage() => _consoleLogsWereLoaded
         ? Loc[nameof(Dashboard.Resources.ConsoleLogs.ConsoleLogsNoLogsFound)]
@@ -727,7 +770,7 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
                 _resourceByName,
                 EventCallback.Factory.Create(this, () =>
                 {
-                    NavigationManager.NavigateTo(DashboardUrls.ResourcesUrl(resource: selectedResource.Name));
+                    NavigationManager.NavigateTo(DashboardUrls.ResourceOverviewUrl(selectedResource.Name));
                     return Task.CompletedTask;
                 }),
                 EventCallback.Factory.Create<CommandViewModel>(this, ExecuteResourceCommandAsync),
@@ -812,7 +855,7 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
     private async Task SubscribeToAllResourcesAsync()
     {
         var availableResources = _resourceByName.Values
-            .Where(r => !r.IsResourceHidden(_showHiddenResources))
+            .Where(IsIncludedInAllResources)
             .ToList();
 
         Logger.LogDebug("Subscribing to {ResourceCount} resources for 'All' view.", availableResources.Count);
@@ -1112,7 +1155,7 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
 
             // If we're subscribed to all resources and this is a new resource, subscribe to it
             if (_isSubscribedToAll && !_consoleLogsSubscriptions.ContainsKey(resource.Name) &&
-                !resource.IsResourceHidden(_showHiddenResources))
+                IsIncludedInAllResources(resource))
             {
                 await SubscribeToSingleResourceAsync(resource);
             }
@@ -1272,7 +1315,7 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
                 viewModel.Status ??= Loc[nameof(Dashboard.Resources.ConsoleLogs.ConsoleLogsLogsNotYetAvailable)];
                 return Task.CompletedTask;
             }
-            else if (TryGetSingleResource() is { } r)
+            else if (ResourcesLayout is null && TryGetSingleResource() is { } r)
             {
                 // If there is no resource selected and there is only one resource available, select it.
                 viewModel.SelectedResource = _resources.GetResource(Logger, r.Name, canSelectGrouping: false, fallbackViewModel: _allResource);
@@ -1293,7 +1336,8 @@ public sealed partial class ConsoleLogs : ComponentBase, IComponentWithTelemetry
 
     public string GetUrlFromSerializableViewModel(ConsoleLogsPageState serializable)
     {
-        return DashboardUrls.ConsoleLogsUrl(serializable.SelectedResource);
+        var url = DashboardUrls.ConsoleLogsUrl(serializable.SelectedResource);
+        return serializable.SelectedResource is null && ResourcesLayout is not null ? ResourcesLayout.AddSelectionToUrl(url) : url;
     }
 
     public ConsoleLogsPageState ConvertViewModelToSerializable()

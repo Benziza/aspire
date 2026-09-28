@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
@@ -134,11 +134,14 @@ public sealed class DashboardWebApplication : IAsyncDisposable
     /// <param name="preConfigureBuilder">Configuration for the internal app builder *before* normal dashboard configuration is done. This is for unit testing.</param>
     /// <param name="options">Environment configuration for the internal app builder. This is for unit testing</param>
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(Components.Layout.MainLayout))]
+    [DynamicDependency(RuntimeActivatedComponentMembers, typeof(Components.Layout.ResourcesLayout))]
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(ConsoleLogs))]
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(Error))]
+    [DynamicDependency(RuntimeActivatedComponentMembers, typeof(Home))]
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(Login))]
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(Metrics))]
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(NotFound))]
+    [DynamicDependency(RuntimeActivatedComponentMembers, typeof(ResourceOverview))]
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(Components.Pages.Resources))]
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(StructuredLogs))]
     [DynamicDependency(RuntimeActivatedComponentMembers, typeof(TerminalWindow))]
@@ -517,7 +520,7 @@ public sealed class DashboardWebApplication : IAsyncDisposable
         // This is done to avoid immediately navigating in the Blazor app.
         _app.Use(async (context, next) =>
         {
-            if (context.Request.Path.Equals(TargetLocationInterceptor.ResourcesPath, StringComparisons.UrlPath))
+            if (context.Request.Path.Value is { } requestPath && TargetLocationInterceptor.IsResourceServicePath(requestPath))
             {
                 var client = context.RequestServices.GetRequiredService<IDashboardClient>();
                 if (!client.IsEnabled)

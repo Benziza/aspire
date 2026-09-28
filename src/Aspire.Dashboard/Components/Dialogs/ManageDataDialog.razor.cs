@@ -262,7 +262,7 @@ public partial class ManageDataDialog : IAsyncDisposable
     {
         return dataType switch
         {
-            AspireDataType.ResourceDetails => new TelemetryDataRow { DataType = AspireDataType.ResourceDetails, Icon = new Icons.Regular.Size16.ContentView(), Url = DashboardUrls.ResourcesUrl(resource: resourceName) },
+            AspireDataType.ResourceDetails => new TelemetryDataRow { DataType = AspireDataType.ResourceDetails, Icon = new Icons.Regular.Size16.ContentView(), Url = DashboardUrls.ResourceOverviewUrl(resourceName) },
             AspireDataType.ConsoleLogs => new TelemetryDataRow { DataType = AspireDataType.ConsoleLogs, Icon = new Icons.Regular.Size16.SlideText(), Url = DashboardUrls.ConsoleLogsUrl(resource: resourceName) },
             AspireDataType.StructuredLogs => new TelemetryDataRow { DataType = AspireDataType.StructuredLogs, Icon = new Icons.Regular.Size16.SlideTextSparkle(), Url = DashboardUrls.StructuredLogsUrl(resource: resourceName) },
             AspireDataType.Traces => new TelemetryDataRow { DataType = AspireDataType.Traces, Icon = new Icons.Regular.Size16.GanttChart(), Url = DashboardUrls.TracesUrl(resource: resourceName) },

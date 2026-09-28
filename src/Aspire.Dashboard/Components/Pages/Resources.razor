@@ -1,4 +1,5 @@
-﻿@page "/"
+﻿@page "/parameters"
+@page "/graph"
 @using Aspire.Dashboard.Components.ResourcesGridColumns
 @using Aspire.Dashboard.Resources
 @using Aspire.Dashboard.Components.Controls.Grid
@@ -7,7 +8,7 @@
 @inject IStringLocalizer<ControlsStrings> ControlsStringsLoc
 @inject IStringLocalizer<Columns> ColumnsLoc
 
-<PageTitle><ApplicationName ResourceName="@nameof(Dashboard.Resources.Resources.ResourcesPageTitle)" Loc="@Loc" /></PageTitle>
+<PageTitle><ApplicationName ResourceName="@GetPageTitleResourceName()" Loc="@Loc" /></PageTitle>
 
 @{
     var showDetailsView = PageViewModel.SelectedResource is not null;
@@ -15,18 +16,15 @@
 
 <div class="page-content-container">
     <AspirePageContentLayout @ref="@_contentLayout"
-                             IsSummaryDetailsViewOpen="@showDetailsView"
-                             HideDesktopToolbar="@(ViewportInformation.IsDesktop && !_hideResourceGraph)">
+                             AddNewlineOnToolbar="true"
+                             IsSummaryDetailsViewOpen="@showDetailsView">
         <PageTitleSection>
-            <h1 class="page-header">@Loc[nameof(Dashboard.Resources.Resources.ResourcesHeader)]</h1>
+            <h1 class="page-header">@Loc[GetPageTitleResourceName()]</h1>
         </PageTitleSection>
 
         <ToolbarSection>
             @if (ViewportInformation.IsDesktop)
             {
-                @* Desktop shares the tabs row with these controls (see the resource-tabs header row below),
-                   but when the resource graph/tabs are disabled there's no tabs row, so the toolbar falls
-                   back to rendering here in the content header. *@
                 @GetDesktopFilterControls()
             }
             else
@@ -87,47 +85,7 @@
                                 OnResize="@(r => _manager.SetWidthFraction(r.Orientation == Orientation.Horizontal ? r.Panel1Fraction : 1))">
                 <Summary>
                     <div class="resources-summary-layout">
-                        <div class="@(!_hideResourceGraph ? "resource-tabs" : string.Empty)">
-                            @*
-                                Tab content isn't nested inside FluentTab elements. The tab control is just used to display the tabs.
-                                Content is located in manually created divs so they can be placed in their own CSS grid row.
-                            *@
-                            @if (!_hideResourceGraph)
-                            {
-                                <div class="resource-tabs-header-row">
-                                    <FluentTabs Class="resources-tab-header"
-                                                ActiveTabId="@($"tab-{PageViewModel.SelectedViewKind}")"
-                                                ActiveTabChanged="@OnTabChangeAsync"
-                                                Orientation="@(ViewportInformation.IsUltraLowWidth ? Orientation.Vertical : Orientation.Horizontal)"
-                                                Size="null">
-                                        <FluentTab HeaderClass="tab-label"
-                                                   Id="@($"tab-{ResourceViewKind.Table}")"
-                                                   Header="@ControlsStringsLoc[nameof(ControlsStrings.ResourcesContainerTableTab)]"
-                                                   IconStart="@(new Icons.Regular.Size24.Table())">
-                                        </FluentTab>
-                                        <FluentTab HeaderClass="tab-label"
-                                                   Id="@($"tab-{ResourceViewKind.Parameters}")"
-                                                   Header="@ControlsStringsLoc[nameof(ControlsStrings.ResourcesContainerParametersTab)]"
-                                                   IconStart="@(new Icons.Regular.Size24.Key())">
-                                        </FluentTab>
-                                        <FluentTab HeaderClass="tab-label"
-                                                   Id="@($"tab-{ResourceViewKind.Graph}")"
-                                                   aria-label="@ControlsStringsLoc[nameof(ControlsStrings.ResourcesContainerGraphAccessibleLabel)]"
-                                                   Header="@ControlsStringsLoc[nameof(ControlsStrings.ResourcesContainerGraphTab)]"
-                                                   IconStart="@(new Icons.Regular.Size24.ShareAndroid())">
-                                        </FluentTab>
-                                    </FluentTabs>
-
-                                    @* On desktop the filter controls share the tabs row (tabs left, controls right)
-                                       instead of taking their own toolbar band. On mobile they live in the filter drawer. *@
-                                    @if (ViewportInformation.IsDesktop)
-                                    {
-                                        <div class="resource-tabs-toolbar filter-toolbar" role="group" aria-label="@ControlsStringsLoc[nameof(ControlsStrings.PageToolbarLandmark)]">
-                                            @GetDesktopFilterControls()
-                                        </div>
-                                    }
-                                </div>
-                            }
+                        <div class="resource-views">
                             <div id="@ScrollContainerId" class="resources-grid-container" tabindex="0" role="region" aria-label="@Loc[nameof(Dashboard.Resources.Resources.ResourcesHeader)]" hidden="@(PageViewModel.SelectedViewKind == ResourceViewKind.Graph)">
                                 <GridColumnManager @ref="_manager" Columns="@_gridColumns">
                                     <AspireFluentDataGrid @ref="_dataGrid"
@@ -288,8 +246,6 @@
 </div>
 
 @code {
-    // These controls render in mutually exclusive desktop locations. Defining the fragment once keeps
-    // element ids unique while allowing the tabs row and fallback toolbar to share the same control.
     private RenderFragment GetDesktopFilterControls()
     {
         return @<div class="toolbar-end">

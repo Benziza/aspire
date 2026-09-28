@@ -1,0 +1,607 @@
+﻿.resources-layout {
+    /* --resource-pane-expanded-width is set inline once the user resizes the pane. */
+    --resource-pane-width: var(--resource-pane-expanded-width, 290px);
+    --resource-brand-soft: color-mix(in srgb, var(--colorBrandBackground) 14%, transparent);
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    background: var(--aspire-page-background);
+}
+
+.resources-layout.pane-collapsed {
+    --resource-pane-width: 52px;
+}
+
+/* Resource pane */
+
+.resource-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 var(--resource-pane-width);
+    width: var(--resource-pane-width);
+    min-width: 0;
+    position: relative;
+    border-right: 1px solid var(--colorNeutralStroke3);
+    background: var(--aspire-page-background);
+}
+
+/* The resizer straddles the pane's right border so it's easy to grab. */
+.resource-pane-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    bottom: 0;
+    z-index: 5;
+    width: 8px;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.resource-pane-resizer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 2px;
+    background: transparent;
+    transition: background-color .15s;
+}
+
+.resource-pane-resizer:hover::after,
+.resource-pane-resizer.resizing::after,
+.resource-pane-resizer:focus-visible::after {
+    background: var(--colorBrandStroke1);
+}
+
+.resource-pane-resizer:focus-visible {
+    outline: none;
+}
+
+.resource-pane-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 12px 8px;
+}
+
+.pane-collapsed .resource-pane-head {
+    justify-content: center;
+    padding: 12px 6px 8px;
+}
+
+::deep .resource-pane-search {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+::deep .resource-pane-search > fluent-text-input,
+::deep fluent-text-input.resource-pane-search {
+    width: 100%;
+}
+
+.resource-pane-filter-popup-container {
+    position: relative;
+}
+
+.resource-pane-states {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 12px 8px;
+}
+
+.state-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--colorNeutralBackground3);
+    color: var(--colorNeutralForeground2);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.state-chip:hover {
+    color: var(--colorNeutralForeground1);
+}
+
+.state-chip.selected {
+    border-color: var(--colorBrandStroke1);
+    background: var(--resource-brand-soft);
+    color: var(--colorBrandForeground1);
+}
+
+.state-chip:focus-visible {
+    outline: 2px solid var(--colorStrokeFocus2);
+    outline-offset: 1px;
+}
+
+.state-chip-count {
+    font-weight: 600;
+}
+
+.state-dot {
+    display: inline-block;
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--colorNeutralForeground3);
+}
+
+.state-dot.state-success {
+    background: var(--success);
+}
+
+.state-dot.state-error {
+    background: var(--error);
+}
+
+.state-dot.state-warning {
+    background: var(--warning);
+}
+
+.state-dot.state-pending {
+    background: transparent;
+    border: 1.5px solid var(--warning);
+}
+
+.state-dot.state-neutral {
+    background: var(--colorNeutralStroke1);
+}
+
+.resource-pane-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 0 6px 10px;
+}
+
+.resource-pane-message {
+    display: flex;
+    justify-content: center;
+    padding: 16px 8px;
+    color: var(--colorNeutralForeground2);
+    font-size: 13px;
+}
+
+.resource-pane-group {
+    margin: 10px 6px 4px;
+    color: var(--colorNeutralForeground2);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.resource-row {
+    display: flex;
+    align-items: center;
+    position: relative;
+    border-radius: 8px;
+}
+
+.resource-row:hover {
+    background: var(--datagrid-hover-color);
+}
+
+.resource-row.selected {
+    background: var(--aspire-control-background);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+}
+
+.resource-row.selected::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--colorBrandBackground);
+}
+
+/* The expand toggle sits on the right so resource icons stay aligned with the filter box above the list. */
+.resource-row-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--colorNeutralForeground2);
+    cursor: pointer;
+}
+
+.resource-row-toggle:hover {
+    background: var(--colorNeutralBackground3);
+}
+
+.resource-row-toggle.collapsed ::deep svg {
+    transform: rotate(-90deg);
+}
+
+.resource-row-link {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    /* Nested resources are indented by their depth in the tree. */
+    padding: 6px 8px 6px calc(6px + var(--resource-row-depth, 0) * 16px);
+    border-radius: 8px;
+    color: var(--colorNeutralForeground1);
+    text-decoration: none;
+}
+
+.pane-collapsed .resource-row-link {
+    justify-content: center;
+    padding: 4px;
+}
+
+.resource-row-link:focus-visible {
+    outline: 2px solid var(--colorStrokeFocus2);
+    outline-offset: -2px;
+}
+
+.resource-row-icon {
+    display: inline-flex;
+    flex: 0 0 30px;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--colorNeutralBackground3);
+}
+
+.resource-row.selected .resource-row-icon {
+    background: var(--resource-brand-soft);
+}
+
+.resource-row-icon-state {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    box-shadow: 0 0 0 2px var(--aspire-page-background);
+}
+
+.resource-row-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.resource-row-name {
+    overflow: hidden;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.resource-row-sub {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    color: var(--colorNeutralForeground2);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.resource-row-type {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.error-badge {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--error);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.resource-pane-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 4px 12px;
+    border-top: 1px solid var(--colorNeutralStroke3);
+    color: var(--colorNeutralForeground2);
+    font-size: 12px;
+}
+
+/* Resource content */
+
+.resource-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.resource-header {
+    padding: 12px 20px 0;
+    background: var(--aspire-page-background);
+}
+
+.resource-header-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+/* The icon is as tall as the title and meta lines next to it, so its edges line up with the text. */
+.resource-header-icon {
+    display: inline-flex;
+    flex: 0 0 48px;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-start;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: var(--resource-brand-soft);
+}
+
+.resource-header-icon.neutral {
+    border: 1px dashed var(--colorNeutralStroke1);
+    background: transparent;
+}
+
+.resource-header-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 48px;
+}
+
+.resource-header-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.resource-title {
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--aspire-font-display);
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 26px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.resource-header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    min-width: 0;
+    min-height: 20px;
+    margin-top: 2px;
+    color: var(--colorNeutralForeground2);
+    font-size: 12.5px;
+}
+
+.resource-header-selection {
+    gap: 4px 6px;
+}
+
+.resource-header-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 200px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--colorNeutralBackground3);
+    color: var(--colorNeutralForeground1);
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.resource-header-chip:hover {
+    background: var(--datagrid-hover-color);
+}
+
+.resource-header-chip:focus-visible {
+    outline: 2px solid var(--colorStrokeFocus2);
+    outline-offset: 1px;
+}
+
+.resource-header-chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.resource-header-urls {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.state-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border-radius: 10px;
+    background: var(--colorNeutralBackground3);
+    color: var(--colorNeutralForeground2);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Status colors don't reach text contrast on the tinted pill, so only the icon carries the state color. */
+.state-pill.state-success {
+    background: color-mix(in srgb, var(--success) 14%, transparent);
+    color: var(--colorNeutralForeground1);
+}
+
+.state-pill.state-success ::deep svg {
+    color: var(--success);
+}
+
+.state-pill.state-error {
+    background: color-mix(in srgb, var(--error) 14%, transparent);
+    color: var(--colorNeutralForeground1);
+}
+
+.state-pill.state-error ::deep svg {
+    color: var(--error);
+}
+
+.state-pill.state-warning,
+.state-pill.state-pending {
+    background: color-mix(in srgb, var(--warning) 14%, transparent);
+    color: var(--colorNeutralForeground1);
+}
+
+.state-pill.state-warning ::deep svg,
+.state-pill.state-pending ::deep svg {
+    color: var(--warning);
+}
+
+.resource-header-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+}
+
+.resource-tabs {
+    display: flex;
+    gap: 2px;
+    margin-top: 10px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--colorNeutralStroke3);
+    scrollbar-width: none;
+}
+
+.resource-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    padding: 9px 12px 10px;
+    color: var(--colorNeutralForeground2);
+    font-size: 13.5px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+a.resource-tab:hover {
+    color: var(--colorNeutralForeground1);
+}
+
+.resource-tab.active {
+    color: var(--colorNeutralForeground1);
+    font-weight: 600;
+}
+
+.resource-tab.active ::deep svg {
+    color: var(--colorBrandForeground1);
+}
+
+.resource-tab.active::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -1px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--colorBrandBackground);
+}
+
+.resource-tab.disabled {
+    opacity: var(--disabled-opacity);
+    cursor: default;
+}
+
+.resource-tab:focus-visible {
+    outline: 2px solid var(--colorStrokeFocus2);
+    outline-offset: -2px;
+    border-radius: 6px;
+}
+
+.resource-tab-count {
+    padding: 0 6px;
+    border-radius: 8px;
+    background: var(--colorNeutralBackground3);
+    color: var(--colorNeutralForeground2);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.resource-tab-count.error {
+    background: color-mix(in srgb, var(--error) 14%, transparent);
+    color: var(--error);
+}
+
+.resource-tab-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Mobile: the pane is a drawer over the content. */
+
+.resource-pane-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: rgba(0, 0, 0, .35);
+}
+
+@media (max-width: 767px) {
+    .resource-pane {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 21;
+        width: min(320px, 88vw);
+        box-shadow: var(--aspire-popup-shadow);
+    }
+
+    .resource-header {
+        padding: 8px 12px 0;
+    }
+
+    .resource-header-icon {
+        display: none;
+    }
+}

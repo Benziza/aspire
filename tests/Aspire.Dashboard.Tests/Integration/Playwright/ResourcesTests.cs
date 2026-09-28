@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Text.RegularExpressions;
 using Aspire.Dashboard.Model;
 using Aspire.Dashboard.Tests.Integration.Playwright.Infrastructure;
 using Aspire.Dashboard.Resources;
@@ -26,7 +27,7 @@ public class ResourcesTests : PlaywrightTestsBase<ResourcesTests.ResourcesDashbo
     {
         await RunTestAsync(async page =>
         {
-            await PlaywrightFixture.GoToHomeAndWaitForDataGridLoad(page).DefaultTimeout();
+            await GoToParametersAndWaitForDataGridLoadAsync(page).DefaultTimeout();
 
             var viewOptionsButton = page.Locator(
                 $"fluent-button[title='{Dashboard.Resources.Resources.ResourcesChangeViewOptions}']");
@@ -45,32 +46,11 @@ public class ResourcesTests : PlaywrightTestsBase<ResourcesTests.ResourcesDashbo
 
     [Fact]
     [OuterloopTest("Resource-intensive Playwright browser test")]
-    public async Task UrlLink_EnterDoesNotOpenResourceDetails()
-    {
-        await RunTestAsync(async page =>
-        {
-            await PlaywrightFixture.GoToHomeAndWaitForDataGridLoad(page).DefaultTimeout();
-
-            var popup = await page.RunAndWaitForPopupAsync(async () =>
-            {
-                var urlLink = page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "about:blank#resource-url" }).First;
-                await urlLink.FocusAsync();
-                await page.Keyboard.PressAsync("Enter");
-            });
-
-            await popup.WaitForURLAsync("about:blank#resource-url").DefaultTimeout();
-            await popup.CloseAsync();
-            await Assertions.Expect(page.Locator(".details-header-title")).ToHaveCountAsync(0);
-        });
-    }
-
-    [Fact]
-    [OuterloopTest("Resource-intensive Playwright browser test")]
     public async Task GridActionButtons_UseCompactMinimumWidth()
     {
         await RunTestAsync(async page =>
         {
-            await PlaywrightFixture.GoToHomeAndWaitForDataGridLoad(page).DefaultTimeout();
+            await GoToParametersAndWaitForDataGridLoadAsync(page).DefaultTimeout();
 
             var values = await page.Locator(".grid-action-container fluent-button").EvaluateAllAsync<int[]>(
                 """
@@ -87,70 +67,58 @@ public class ResourcesTests : PlaywrightTestsBase<ResourcesTests.ResourcesDashbo
 
     [Fact]
     [OuterloopTest("Resource-intensive Playwright browser test")]
-    public async Task NameColumn_SortsResources()
+    public async Task NameColumn_SortsParameters()
     {
         await RunTestAsync(async page =>
         {
-            await page.GotoAsync("/");
+            await page.GotoAsync("/parameters");
 
             var resourceNames = page.Locator(".main-grid .resource-row .resource-name-text");
-            await Assertions.Expect(resourceNames).ToHaveCountAsync(3);
-            await Assertions.Expect(resourceNames.Nth(0)).ToContainTextAsync("basketcache");
-            await Assertions.Expect(resourceNames.Nth(1)).ToContainTextAsync("apigateway");
-            await Assertions.Expect(resourceNames.Nth(2)).ToContainTextAsync("TestResource");
+            await Assertions.Expect(resourceNames).ToHaveCountAsync(2);
+            await Assertions.Expect(resourceNames.Nth(0)).ToContainTextAsync("alpha-param");
+            await Assertions.Expect(resourceNames.Nth(1)).ToContainTextAsync("zeta-param");
 
             var nameHeader = page.Locator(".main-grid th[col-index='1']");
-            await nameHeader.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = ControlsStrings.NameColumnHeader, Exact = true }).ClickAsync();
-
             var sortItem = page.GetByRole(AriaRole.Menuitem, new PageGetByRoleOptions { Name = ControlsStrings.FluentDataGridHeaderCellSortButtonText, Exact = true });
+            var nameHeaderButton = nameHeader.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = ControlsStrings.NameColumnHeader, Exact = true });
+
+            await nameHeaderButton.ClickAsync();
             await sortItem.ClickAsync();
-
             await Assertions.Expect(nameHeader).ToHaveAttributeAsync("aria-sort", "ascending");
-            await Assertions.Expect(resourceNames.Nth(0)).ToContainTextAsync("apigateway");
-            await Assertions.Expect(resourceNames.Nth(1)).ToContainTextAsync("basketcache");
-            await Assertions.Expect(resourceNames.Nth(2)).ToContainTextAsync("TestResource");
+            await Assertions.Expect(resourceNames.Nth(0)).ToContainTextAsync("alpha-param");
+
+            await nameHeaderButton.ClickAsync();
+            await page.GetByRole(AriaRole.Menuitem, new PageGetByRoleOptions { Name = ControlsStrings.FluentDataGridHeaderCellSortAscendingButtonText, Exact = true }).ClickAsync();
+            await Assertions.Expect(nameHeader).ToHaveAttributeAsync("aria-sort", "descending");
+            await Assertions.Expect(resourceNames.Nth(0)).ToContainTextAsync("zeta-param");
+            await Assertions.Expect(resourceNames.Nth(1)).ToContainTextAsync("alpha-param");
         });
     }
 
     [Fact]
     [OuterloopTest("Resource-intensive Playwright browser test")]
-    public async Task ResourceViewTabs_RemainVisibleAtNarrowViewport()
-    {
-        await RunTestAsync(async page =>
-        {
-            await page.SetViewportSizeAsync(320, 720);
-            await PlaywrightFixture.GoToHomeAndWaitForDataGridLoad(page).DefaultTimeout();
-
-            var tableTab = page.GetByRole(AriaRole.Tab, new PageGetByRoleOptions { Name = ControlsStrings.ResourcesContainerTableTab, Exact = true });
-            await Assertions.Expect(tableTab).ToBeVisibleAsync();
-            await Assertions.Expect(tableTab).ToHaveAttributeAsync("aria-selected", "true");
-
-            var tabBounds = await tableTab.BoundingBoxAsync();
-            Assert.NotNull(tabBounds);
-            Assert.True(tabBounds.X >= 0);
-            Assert.True(tabBounds.X + tabBounds.Width <= 320);
-        });
-    }
-
-    [Fact]
-    [OuterloopTest("Resource-intensive Playwright browser test")]
-    public async Task ResourceViewTabs_RemainVisibleAtNarrowHorizontalViewport()
+    public async Task ResourcePane_MobileDrawerSelectsResource()
     {
         await RunTestAsync(async page =>
         {
             await page.SetViewportSizeAsync(360, 720);
-            await PlaywrightFixture.GoToHomeAndWaitForDataGridLoad(page).DefaultTimeout();
+            await page.GotoAsync("/resources");
 
-            var tabs = page.Locator(".resources-tab-header > fluent-tablist[orientation='horizontal']");
-            await Assertions.Expect(tabs).ToBeVisibleAsync();
+            var layout = page.Locator(".resources-layout");
+            await Assertions.Expect(layout).Not.ToHaveClassAsync(new Regex("drawer-open"));
 
-            var tableTab = page.GetByRole(AriaRole.Tab, new PageGetByRoleOptions { Name = ControlsStrings.ResourcesContainerTableTab, Exact = true });
-            var parametersTab = page.GetByRole(AriaRole.Tab, new PageGetByRoleOptions { Name = ControlsStrings.ResourcesContainerParametersTab, Exact = true });
-            var graphTab = page.Locator("#tab-Graph");
+            await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = Dashboard.Resources.Layout.ResourcePaneOpen, Exact = true }).ClickAsync();
+            await Assertions.Expect(layout).ToHaveClassAsync(new Regex("drawer-open"));
 
-            await AssertTabVisibleWithinViewportAsync(tableTab, 360);
-            await AssertTabVisibleWithinViewportAsync(parametersTab, 360);
-            await AssertTabVisibleWithinViewportAsync(graphTab, 360);
+            var resourceLink = page.Locator(".resource-pane").GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = "TestResource" });
+            var linkBounds = await resourceLink.BoundingBoxAsync();
+            Assert.NotNull(linkBounds);
+            Assert.True(linkBounds.X >= 0 && linkBounds.X + linkBounds.Width <= 360, $"The resource link should fit inside the viewport, but it spanned {linkBounds.X} to {linkBounds.X + linkBounds.Width}.");
+
+            await resourceLink.ClickAsync();
+            await page.WaitForURLAsync(url => new Uri(url).AbsolutePath == "/resources/TestResource");
+            await Assertions.Expect(layout).Not.ToHaveClassAsync(new Regex("drawer-open"));
+            await Assertions.Expect(page.Locator(".resource-title")).ToHaveTextAsync("TestResource");
         });
     }
 
@@ -164,9 +132,9 @@ public class ResourcesTests : PlaywrightTestsBase<ResourcesTests.ResourcesDashbo
 
             var navigationCount = await page.EvaluateAsync<int>("() => performance.getEntriesByType('navigation').length");
 
-            var graphTab = page.Locator("#tab-Graph");
-            await graphTab.ClickAsync();
-            await Assertions.Expect(graphTab).ToHaveAttributeAsync("aria-selected", "true");
+            var graphLink = page.Locator(".header-nav").GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = Dashboard.Resources.Layout.NavMenuGraphTab, Exact = true });
+            await graphLink.ClickAsync();
+            await Assertions.Expect(graphLink).ToHaveAttributeAsync("aria-current", "page");
 
             var graphContainer = page.Locator("#resourcesGraphContainer");
             await Assertions.Expect(graphContainer).ToBeVisibleAsync();
@@ -186,8 +154,7 @@ public class ResourcesTests : PlaywrightTestsBase<ResourcesTests.ResourcesDashbo
     {
         await RunTestAsync(async page =>
         {
-            await PlaywrightFixture.GoToHomeAndWaitForDataGridLoad(page).DefaultTimeout();
-            await page.Locator("#tab-Graph").ClickAsync();
+            await page.GotoAsync("/graph");
 
             var node = page.Locator(".resource-group[resource-name='TestResource']");
             await Assertions.Expect(node).ToBeVisibleAsync();
@@ -283,17 +250,10 @@ public class ResourcesTests : PlaywrightTestsBase<ResourcesTests.ResourcesDashbo
                     Name = ControlsStrings.ActionViewDetailsText,
                     Exact = true
                 }).ClickAsync();
-            await Assertions.Expect(page.Locator(".details-header-title")).ToHaveTextAsync("Project: TestResource");
 
-            await page.GetByRole(
-                AriaRole.Button,
-                new PageGetByRoleOptions
-                {
-                    Name = ControlsStrings.SummaryDetailsViewCloseView,
-                    Exact = true
-                }).ClickAsync();
-            await Assertions.Expect(page.Locator(".details-header-title")).ToHaveCountAsync(0);
-            await Assertions.Expect(cog).ToBeFocusedAsync();
+            // Non-parameter resources open in the Resources view rather than a graph side panel.
+            await page.WaitForURLAsync(url => new Uri(url).AbsolutePath == "/resources/TestResource");
+            await Assertions.Expect(page.Locator(".resource-title")).ToHaveTextAsync("TestResource");
         });
     }
 
@@ -335,7 +295,7 @@ public class ResourcesTests : PlaywrightTestsBase<ResourcesTests.ResourcesDashbo
     {
         await RunTestAsync(async page =>
         {
-            await page.GotoAsync("/?view=Graph");
+            await page.GotoAsync("/graph");
 
             var node = page.Locator(".resource-node").First;
             await Assertions.Expect(node).ToBeVisibleAsync();
@@ -414,17 +374,21 @@ public class ResourcesTests : PlaywrightTestsBase<ResourcesTests.ResourcesDashbo
                 urls:
                 [
                     new UrlViewModel("http", new Uri("about:blank#resource-url"), isInternal: false, isInactive: false, UrlDisplayPropertiesViewModel.Empty)
-                ])
+                ]),
+            ModelTestHelpers.CreateResource(
+                resourceName: "zeta-param",
+                resourceType: KnownResourceTypes.Parameter,
+                state: KnownResourceState.Running),
+            ModelTestHelpers.CreateResource(
+                resourceName: "alpha-param",
+                resourceType: KnownResourceTypes.Parameter,
+                state: KnownResourceState.Running)
         ];
     }
 
-    private static async Task AssertTabVisibleWithinViewportAsync(ILocator tab, int viewportWidth)
+    private static async Task GoToParametersAndWaitForDataGridLoadAsync(IPage page)
     {
-        await Assertions.Expect(tab).ToBeVisibleAsync();
-
-        var tabBounds = await tab.BoundingBoxAsync();
-        Assert.NotNull(tabBounds);
-        Assert.True(tabBounds.X >= 0, $"Tab should be within the viewport, but its X position was {tabBounds.X}.");
-        Assert.True(tabBounds.X + tabBounds.Width <= viewportWidth, $"Tab should fit inside the {viewportWidth}px viewport, but its right edge was {tabBounds.X + tabBounds.Width}.");
+        await page.GotoAsync("/parameters");
+        await Assertions.Expect(page.Locator(".main-grid .resource-row").First).ToBeVisibleAsync();
     }
 }

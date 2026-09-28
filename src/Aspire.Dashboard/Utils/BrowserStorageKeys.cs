@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.FluentUI.AspNetCore.Components;
@@ -15,7 +15,8 @@ internal static class BrowserStorageKeys
     public const string StructuredLogsPageState = "Aspire_PageState_StructuredLogs";
     public const string MetricsPageState = "Aspire_PageState_Metrics";
     public const string ConsoleLogsPageState = "Aspire_PageState_ConsoleLogs";
-    public const string ResourcesPageState = "Resources_PageState";
+    public const string ParametersPageState = "Aspire_PageState_Parameters";
+    public const string GraphPageState = "Aspire_PageState_Graph";
     public const string ConsoleLogConsoleSettings = "Aspire_ConsoleLog_ConsoleSettings";
     public const string ConsoleLogFilters = "Aspire_ConsoleLog_Filters";
     public const string TextVisualizerDialogSettings = "Aspire_TextVisualizerDialog_TextVisualizerDialogSettings";
@@ -25,7 +26,9 @@ internal static class BrowserStorageKeys
     public const string SelectedDashboardRunId = "Aspire_Settings_SelectedDashboardRunId";
     public const string ResourcesShowHiddenResources = "Aspire_Resources_ShowHiddenResources";
 
-    public const string NavMenuExpanded = "Aspire_NavMenu_Expanded";
+    public const string ResourcePaneCollapsed = "Aspire_ResourcePane_Collapsed";
+    public const string ResourcePaneWidth = "Aspire_ResourcePane_Width";
+    public const string LastSelectedResources = "Aspire_ResourcePane_LastSelectedResources";
 
     public const string CollapsedResourceNamesKeyPrefix = "Aspire_Resources_CollapsedResourceNames_";
     public const string SplitterOrientationKeyPrefix = "Aspire_SplitterOrientation_";

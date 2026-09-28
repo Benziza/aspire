@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
@@ -99,6 +99,13 @@ public partial class TraceDetail : ComponentBase, IComponentWithTelemetry, IDisp
 
     [CascadingParameter]
     public required ViewportInformation ViewportInformation { get; set; }
+
+    /// <summary>
+    /// The resources layout hosting this page. When present, the layout's resource pane selects the resource
+    /// and displays resource commands, so the page doesn't display its own resource selector.
+    /// </summary>
+    [CascadingParameter]
+    public ResourcesLayout? ResourcesLayout { get; set; }
 
     protected override void OnInitialized()
     {

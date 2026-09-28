@@ -2,6 +2,7 @@
 @page "/metrics/resource/{resourceName}"
 @page "/metrics/resource/{resourceName}/meter/{meterName}"
 @page "/metrics/resource/{resourceName}/meter/{meterName}/instrument/{instrumentName}"
+@layout ResourcesLayout
 
 @using Aspire.Dashboard.Components.Controls.Grid
 @using Aspire.Dashboard.Resources
@@ -39,12 +40,15 @@
             <h1 class="page-header">@Loc[nameof(Dashboard.Resources.Metrics.MetricsHeader)]</h1>
         </PageTitleSection>
         <ToolbarSection>
-            <ResourceSelect Resources="_resourceViewModels"
-                            AriaLabel="@ControlsStringsLoc[nameof(ControlsStrings.SelectAResource)]"
-                            @bind-SelectedResource="PageViewModel.SelectedResource"
-                            @bind-SelectedResource:after="HandleSelectedResourceChangedAsync"
-                            CanSelectGrouping="true"
-                            LabelClass="toolbar-left" />
+            @if (ResourcesLayout is null || _selectionResourceViewModels is not null)
+            {
+                <ResourceSelect Resources="@(_selectionResourceViewModels ?? _resourceViewModels)"
+                                AriaLabel="@ControlsStringsLoc[nameof(ControlsStrings.SelectAResource)]"
+                                @bind-SelectedResource="PageViewModel.SelectedResource"
+                                @bind-SelectedResource:after="HandleSelectedResourceChangedAsync"
+                                CanSelectGrouping="true"
+                                LabelClass="toolbar-left" />
+            }
 
             <SignalsActionsDisplay IsPaused="@PauseManager.AreMetricsPaused(out _)"
                                   OnPausedChanged="@PauseManager.SetMetricsPaused"

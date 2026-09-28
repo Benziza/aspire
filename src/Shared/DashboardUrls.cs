@@ -9,6 +9,9 @@ namespace Aspire.Dashboard.Utils;
 internal static class DashboardUrls
 {
     public const string ResourcesBasePath = "";
+    public const string ResourceOverviewBasePath = "resources";
+    public const string ParametersBasePath = "parameters";
+    public const string GraphBasePath = "graph";
     public const string ConsoleLogBasePath = "consolelogs";
     public const string MetricsBasePath = "metrics";
     public const string StructuredLogsBasePath = "structuredlogs";
@@ -27,6 +30,80 @@ internal static class DashboardUrls
         {
             url = AddQueryString(url, "view", view);
         }
+        if (hiddenTypes != null)
+        {
+            url = AddQueryString(url, "hiddenTypes", hiddenTypes);
+        }
+        if (hiddenStates != null)
+        {
+            url = AddQueryString(url, "hiddenStates", hiddenStates);
+        }
+        if (hiddenHealthStates != null)
+        {
+            url = AddQueryString(url, "hiddenHealthStates", hiddenHealthStates);
+        }
+
+        return url;
+    }
+
+    /// <summary>
+    /// The query string parameter that lists the resources selected in the dashboard's resource list when more than
+    /// one resource is selected, for example <c>/structuredlogs?resource=api&amp;resource=worker</c>. A single selected
+    /// resource is part of the URL path instead.
+    /// </summary>
+    public const string ResourceSelectionQueryName = "resource";
+
+    /// <summary>
+    /// Adds the selected resources to a URL using <see cref="ResourceSelectionQueryName"/>.
+    /// </summary>
+    public static string AddResourceSelection(string url, IEnumerable<string> resources)
+    {
+        foreach (var resource in resources)
+        {
+            url = AddQueryString(url, ResourceSelectionQueryName, resource);
+        }
+
+        return url;
+    }
+
+    /// <summary>
+    /// Gets the URL of the dashboard home page.
+    /// </summary>
+    public static string HomeUrl() => "/";
+
+    /// <summary>
+    /// Gets the URL of the resource overview. Without a resource, the URL lands on the resources view,
+    /// which selects the most recently viewed resource.
+    /// </summary>
+    public static string ResourceOverviewUrl(string? resource = null)
+    {
+        var url = $"/{ResourceOverviewBasePath}";
+        if (resource != null)
+        {
+            url += $"/{Uri.EscapeDataString(resource)}";
+        }
+
+        return url;
+    }
+
+    public static string ParametersUrl(string? hiddenStates = null, string? hiddenHealthStates = null)
+    {
+        var url = $"/{ParametersBasePath}";
+        if (hiddenStates != null)
+        {
+            url = AddQueryString(url, "hiddenStates", hiddenStates);
+        }
+        if (hiddenHealthStates != null)
+        {
+            url = AddQueryString(url, "hiddenHealthStates", hiddenHealthStates);
+        }
+
+        return url;
+    }
+
+    public static string GraphUrl(string? hiddenTypes = null, string? hiddenStates = null, string? hiddenHealthStates = null)
+    {
+        var url = $"/{GraphBasePath}";
         if (hiddenTypes != null)
         {
             url = AddQueryString(url, "hiddenTypes", hiddenTypes);

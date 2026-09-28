@@ -101,10 +101,10 @@ public class DashboardInteractionsTests : PlaywrightTestsBase<DashboardInteracti
     {
         await RunTestAsync(async page =>
         {
-            await GoToResourcesAndWaitAsync(page);
+            await page.GotoAsync("/parameters");
 
             var grid = page.Locator(".main-grid").First;
-            await Assertions.Expect(grid).ToBeVisibleAsync();
+            await Assertions.Expect(grid.Locator(".resource-row").First).ToBeVisibleAsync();
 
             // Guard against a Fluent UI Blazor rename of the resize handle marker: the auto-fit
             // double-click handler keys off exactly these selectors, so if none is present the
@@ -599,6 +599,10 @@ public class DashboardInteractionsTests : PlaywrightTestsBase<DashboardInteracti
                 [
                     new UrlViewModel("http", new Uri("about:blank#parent-url"), isInternal: false, isInactive: false, UrlDisplayPropertiesViewModel.Empty)
                 ]),
+            ModelTestHelpers.CreateResource(
+                resourceName: "connection-string",
+                resourceType: KnownResourceTypes.Parameter,
+                state: KnownResourceState.Running),
         ];
     }
 }

@@ -54,7 +54,7 @@ public partial class ResourceNameButtonValue
     {
         Debug.Assert(_resource != null, "Should only get here if there is a matched resource.");
 
-        NavigationManager.NavigateTo(DashboardUrls.ResourcesUrl(_resource.Name));
+        NavigationManager.NavigateTo(DashboardUrls.ResourceOverviewUrl(_resource.Name));
         return Task.CompletedTask;
     }
 }

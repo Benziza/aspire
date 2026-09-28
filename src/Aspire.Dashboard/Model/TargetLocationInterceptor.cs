@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics.CodeAnalysis;
+using Aspire.Dashboard.Utils;
 
 namespace Aspire.Dashboard.Model;
 
@@ -9,6 +10,25 @@ internal static class TargetLocationInterceptor
 {
     public const string ResourcesPath = "/";
     public const string StructuredLogsPath = "/structuredlogs";
+
+    /// <summary>
+    /// Returns a value indicating whether the path is a page that displays the app model. These pages can't be shown
+    /// without a resource service, so they're redirected to structured logs.
+    /// </summary>
+    public static bool IsResourceServicePath(string path)
+    {
+        if (string.Equals(path, ResourcesPath, StringComparisons.UrlPath))
+        {
+            return true;
+        }
+
+        var trimmedPath = path.TrimStart('/');
+        var firstSegment = trimmedPath.Split('/', 2)[0];
+
+        return string.Equals(firstSegment, DashboardUrls.ResourceOverviewBasePath, StringComparisons.UrlPath)
+            || (string.Equals(firstSegment, DashboardUrls.ParametersBasePath, StringComparisons.UrlPath) && trimmedPath.Length == firstSegment.Length)
+            || (string.Equals(firstSegment, DashboardUrls.GraphBasePath, StringComparisons.UrlPath) && trimmedPath.Length == firstSegment.Length);
+    }
 
     public static bool InterceptTargetLocation(string appBaseUri, string originalTargetLocation, [NotNullWhen(true)] out string? newTargetLocation)
     {
@@ -33,7 +53,7 @@ internal static class TargetLocationInterceptor
             path = originalTargetLocation;
         }
 
-        if (string.Equals(path, ResourcesPath, StringComparisons.UrlPath))
+        if (IsResourceServicePath(path))
         {
             newTargetLocation = StructuredLogsPath;
             return true;

@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Concurrent;
@@ -15,6 +15,7 @@ using Aspire.Dashboard.Utils;
 using Aspire.Hosting.Utils;
 using Humanizer;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.Options;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -41,7 +42,7 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
     private EventCallback _onToggleCollapseAllCallback;
     private EventCallback _onToggleResourceTypeCallback;
     private bool _hideResourceGraph;
-    private bool _isDisposing;
+    private ResourceViewKind _routeViewKind;
     private string _collapsedResourceNamesKey = null!;
     private Dictionary<ResourceKey, int>? _resourceUnviewedErrorCounts;
 
@@ -76,13 +77,9 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
     [Inject]
     public required ResourceMenuBuilder ResourceMenuBuilder { get; init; }
 
-    public string BasePath => DashboardUrls.ResourcesBasePath;
-    public string SessionStorageKey => BrowserStorageKeys.ResourcesPageState;
+    public string BasePath => GetRouteViewKind() == ResourceViewKind.Graph ? DashboardUrls.GraphBasePath : DashboardUrls.ParametersBasePath;
+    public string SessionStorageKey => GetRouteViewKind() == ResourceViewKind.Graph ? BrowserStorageKeys.GraphPageState : BrowserStorageKeys.ParametersPageState;
     public ResourcesViewModel PageViewModel { get; set; } = null!;
-
-    [Parameter]
-    [SupplyParameterFromQuery(Name = "view")]
-    public string? ViewKindName { get; set; }
 
     [Parameter]
     [SupplyParameterFromQuery(Name = "showHiddenResources")]
@@ -206,10 +203,13 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
 
         _hideResourceGraph = DashboardOptions.CurrentValue.UI.DisableResourceGraph ?? false;
 
+        _routeViewKind = GetRouteViewKind();
         PageViewModel = new ResourcesViewModel
         {
-            SelectedViewKind = ResourceViewKind.Table
+            SelectedViewKind = _routeViewKind
         };
+
+        NavigationManager.LocationChanged += OnLocationChanged;
 
         _resourceUnviewedErrorCounts = TelemetryRepository.GetResourceUnviewedErrorLogsCount();
 
@@ -566,6 +566,22 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
 
     protected override async Task OnParametersSetAsync()
     {
+        // The same component instance is reused when navigating between the graph and parameters routes.
+        var routeViewKind = GetRouteViewKind();
+        var viewChanged = routeViewKind != _routeViewKind;
+        if (viewChanged)
+        {
+            _routeViewKind = routeViewKind;
+            PageViewModel.SelectedViewKind = routeViewKind;
+            PageViewModel.SelectedResource = null;
+        }
+
+        if (routeViewKind == ResourceViewKind.Graph && _hideResourceGraph)
+        {
+            NavigationManager.NavigateTo(DashboardUrls.ParametersUrl(), new NavigationOptions { ReplaceHistoryEntry = true });
+            return;
+        }
+
         if (await this.InitializeViewModelAsync())
         {
             return;
@@ -587,6 +603,11 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
             if (_resourceByName.TryGetValue(ResourceName, out var selectedResource))
             {
                 await ShowResourceDetailsAsync(selectedResource, focusElementId: null);
+                if (!selectedResource.IsParameter && PageViewModel.SelectedViewKind is ResourceViewKind.Graph or ResourceViewKind.Parameters)
+                {
+                    // Showing details navigated to the resource overview.
+                    return;
+                }
             }
             else
             {
@@ -596,7 +617,12 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
             // Navigate to remove ?resource=xxx in the URL. A small delay is required here, otherwise the page rendering breaks.
             await Task.Delay(200, _cts.Token);
 
-            NavigationManager.NavigateTo(DashboardUrls.ResourcesUrl(), new NavigationOptions { ReplaceHistoryEntry = true });
+            NavigationManager.NavigateTo($"/{BasePath}", new NavigationOptions { ReplaceHistoryEntry = true });
+        }
+
+        if (viewChanged)
+        {
+            await OnRouteViewChangedAsync();
         }
 
         UpdateTelemetryProperties();
@@ -657,6 +683,13 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
     private async Task ShowResourceDetailsAsync(ResourceViewModel resource, string? focusElementId)
     {
         Logger.LogDebug("Showing details for resource {ResourceName}.", resource.Name);
+
+        // Resource details are displayed by the resources view. Only parameters are displayed in this page's details panel.
+        if (!resource.IsParameter && PageViewModel.SelectedViewKind is ResourceViewKind.Graph or ResourceViewKind.Parameters)
+        {
+            NavigationManager.NavigateTo(DashboardUrls.ResourceOverviewUrl(GetResourceName(resource)));
+            return;
+        }
 
         _elementIdBeforeDetailsViewOpened = focusElementId;
 
@@ -834,46 +867,78 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
         return _resourceByName.Values.Any(r => !string.IsNullOrEmpty(r.GetResourcePropertyValue(KnownProperties.Resource.ParentName)));
     }
 
-    private Task OnTabChangeAsync(FluentTab? newTab)
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        if (_isDisposing)
+        // The router reuses this component when navigating between /parameters and /graph. Neither route
+        // has route values, so when the query string is unchanged the page receives no changed parameters
+        // and OnParametersSetAsync isn't called. Apply the route change here instead.
+        var routeViewKind = GetRouteViewKind();
+        if (routeViewKind == _routeViewKind || routeViewKind is not (ResourceViewKind.Graph or ResourceViewKind.Parameters))
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        var id = newTab?.Id?.Substring("tab-".Length);
-
-        if (id is null
-            || !Enum.TryParse(typeof(ResourceViewKind), id, out var o)
-            || o is not ResourceViewKind viewKind
-            || PageViewModel.SelectedViewKind == viewKind)
+        _ = InvokeAsync(async () =>
         {
-            return Task.CompletedTask;
-        }
-
-        return OnViewChangedAsync(viewKind);
+            try
+            {
+                await OnParametersSetAsync();
+                StateHasChanged();
+            }
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+            {
+                // The page was disposed while applying the route change.
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error applying route change to the resources view.");
+            }
+        });
     }
 
-    private async Task OnViewChangedAsync(ResourceViewKind newView)
+    private async Task OnRouteViewChangedAsync()
     {
-        newView = GetVisibleViewKindForViewChange(newView, PageViewModel.SelectedResource);
-
-        PageViewModel.SelectedViewKind = newView;
-        await this.AfterViewModelChangedAsync(_contentLayout, waitToApplyMobileChange: true);
-
-        if (newView == ResourceViewKind.Graph)
+        if (PageViewModel.SelectedViewKind == ResourceViewKind.Graph)
         {
             await UpdateResourceGraphResourcesAsync();
             await UpdateResourceGraphSelectedAsync();
         }
         else
         {
-            // Refresh the data grid when switching between Table and Parameters views
-            // since the filter logic depends on the selected view
+            // The grid filter depends on the selected view.
             UpdateMaxHighlightedCount();
             await _dataGrid.SafeRefreshDataAsync();
         }
     }
+
+    /// <summary>
+    /// Gets the view displayed by the page from the current route: <c>/graph</c> or <c>/parameters</c>.
+    /// </summary>
+    internal ResourceViewKind GetRouteViewKind() => GetViewKindFromPath(NavigationManager.ToBaseRelativePath(NavigationManager.Uri));
+
+    internal static ResourceViewKind GetViewKindFromPath(string baseRelativePath)
+    {
+        var path = baseRelativePath;
+        var queryIndex = path.IndexOfAny(['?', '#']);
+        if (queryIndex >= 0)
+        {
+            path = path[..queryIndex];
+        }
+
+        return path.Trim('/').ToLowerInvariant() switch
+        {
+            DashboardUrls.GraphBasePath => ResourceViewKind.Graph,
+            DashboardUrls.ParametersBasePath => ResourceViewKind.Parameters,
+            _ => ResourceViewKind.Table
+        };
+    }
+
+    private string GetPageTitleResourceName() => PageViewModel.SelectedViewKind switch
+    {
+        ResourceViewKind.Graph => nameof(Dashboard.Resources.Resources.GraphPageTitle),
+        ResourceViewKind.Parameters => nameof(Dashboard.Resources.Resources.ParametersPageTitle),
+        _ => nameof(Dashboard.Resources.Resources.ResourcesPageTitle)
+    };
 
     internal static ResourceViewKind GetVisibleViewKindForSelectedResource(ResourceViewKind selectedViewKind, ResourceViewModel resource)
     {
@@ -950,23 +1015,19 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
 
     public Task UpdateViewModelFromQueryAsync(ResourcesViewModel viewModel)
     {
-        // Don't allow the view to be updated from the query string if the resource graph is disabled.
-        if (!_hideResourceGraph && Enum.TryParse(typeof(ResourceViewKind), ViewKindName, out var view) && view is ResourceViewKind vk)
-        {
-            viewModel.SelectedViewKind = vk;
-        }
-
         return Task.CompletedTask;
     }
 
     public string GetUrlFromSerializableViewModel(ResourcesPageState serializable)
     {
-        return DashboardUrls.ResourcesUrl(
-            view: serializable.ViewKind,
-            // add resource?
-            hiddenTypes: SerializeFiltersToString(serializable.ResourceTypesToVisibility),
-            hiddenStates: SerializeFiltersToString(serializable.ResourceStatesToVisibility),
-            hiddenHealthStates: SerializeFiltersToString(serializable.ResourceHealthStatusesToVisibility));
+        return PageViewModel.SelectedViewKind == ResourceViewKind.Graph
+            ? DashboardUrls.GraphUrl(
+                hiddenTypes: SerializeFiltersToString(serializable.ResourceTypesToVisibility),
+                hiddenStates: SerializeFiltersToString(serializable.ResourceStatesToVisibility),
+                hiddenHealthStates: SerializeFiltersToString(serializable.ResourceHealthStatusesToVisibility))
+            : DashboardUrls.ParametersUrl(
+                hiddenStates: SerializeFiltersToString(serializable.ResourceStatesToVisibility),
+                hiddenHealthStates: SerializeFiltersToString(serializable.ResourceHealthStatusesToVisibility));
 
         static string? SerializeFiltersToString(IDictionary<string, bool> filters)
         {
@@ -988,8 +1049,7 @@ public partial class Resources : ComponentBase, IComponentWithTelemetry, IAsyncD
 
     public async ValueTask DisposeAsync()
     {
-        _isDisposing = true;
-
+        NavigationManager.LocationChanged -= OnLocationChanged;
         _resourcesInteropReference?.Dispose();
         _cts.Cancel();
         _logsSubscription?.Dispose();

@@ -1,5 +1,6 @@
 ﻿@page "/structuredlogs"
 @page "/structuredlogs/resource/{resourceName}"
+@layout ResourcesLayout
 
 @using Aspire.Dashboard.Resources
 @using Aspire.Dashboard.Components.Controls.Grid
@@ -147,12 +148,15 @@
     private RenderFragment GetFilterToolbar()
     {
         return @<text>
-            <ResourceSelect Resources="_resourceViewModels"
-                            AriaLabel="@ControlsStringsLoc[nameof(ControlsStrings.SelectAResource)]"
-                            @bind-SelectedResource="PageViewModel.SelectedResource"
-                            @bind-SelectedResource:after="HandleSelectedResourceChangedAsync"
-                            CanSelectGrouping="true"
-                            LabelClass="toolbar-left" />
+            @if (ResourcesLayout is null)
+            {
+                <ResourceSelect Resources="_resourceViewModels"
+                                AriaLabel="@ControlsStringsLoc[nameof(ControlsStrings.SelectAResource)]"
+                                @bind-SelectedResource="PageViewModel.SelectedResource"
+                                @bind-SelectedResource:after="HandleSelectedResourceChangedAsync"
+                                CanSelectGrouping="true"
+                                LabelClass="toolbar-left" />
+            }
 
             <SignalsActionsDisplay HandleClearSignal="@ClearStructureLogs"
                                    IsPaused="@PauseManager.AreStructuredLogsPaused(out _)"

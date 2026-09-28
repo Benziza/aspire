@@ -1,0 +1,273 @@
+﻿@page "/"
+@using Aspire.Dashboard.Components.Layout
+@using Aspire.Dashboard.Resources
+@using Aspire.Shared
+
+<PageTitle><ApplicationName ResourceName="@nameof(Dashboard.Resources.Resources.HomePageTitle)" Loc="@Loc" /></PageTitle>
+
+<div class="home" tabindex="-1">
+    <h1 class="visually-hidden">@Loc[nameof(Dashboard.Resources.Resources.HomePageTitle)]</h1>
+
+    @if (!_isLoaded)
+    {
+        <div class="home-message">
+            <FluentSpinner Size="SpinnerSize.Small" />
+        </div>
+    }
+    else
+    {
+        var resources = GetResources();
+        var summary = GetHealthSummary(resources);
+        var heroState = GetHeroStateClass(summary);
+
+        <section class="home-hero @heroState" aria-label="@Loc[nameof(Dashboard.Resources.Resources.HomeSummaryLandmark)]">
+            <div class="home-hero-main">
+                <span class="home-hero-icon" aria-hidden="true">
+                    @switch (heroState)
+                    {
+                        case "state-error":
+                            <FluentIcon Value="@(new Icons.Filled.Size24.Warning())" Color="Color.Custom" CustomColor="var(--error)" />
+                            break;
+                        case "state-pending":
+                            <FluentIcon Value="@(new Icons.Regular.Size24.ArrowSync())" Color="Color.Custom" CustomColor="var(--warning)" />
+                            break;
+                        case "state-success":
+                            <FluentIcon Value="@(new Icons.Filled.Size24.CheckmarkCircle())" Color="Color.Custom" CustomColor="var(--success)" />
+                            break;
+                        default:
+                            <FluentIcon Value="@(new Icons.Regular.Size24.Info())" Color="Color.Custom" CustomColor="var(--colorNeutralForeground3)" />
+                            break;
+                    }
+                </span>
+                <div class="home-hero-text">
+                    <h2 class="home-hero-headline">@GetHeadline(summary)</h2>
+                    @if (summary.StartedAt is { } startedAt)
+                    {
+                        <span class="home-hero-sub">@Loc[nameof(Dashboard.Resources.Resources.HomeStartedAt), FormatHelpers.FormatTimeWithOptionalDate(TimeProvider, startedAt)]</span>
+                    }
+                </div>
+                <a class="home-hero-link" href="@DashboardUrls.ResourceOverviewUrl()">
+                    @Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewViewAll)]
+                    <FluentIcon Value="@(new Icons.Regular.Size16.ArrowRight())" Width="14px" Color="Color.Custom" CustomColor="currentColor" />
+                </a>
+            </div>
+            @if (summary.Total > 0)
+            {
+                <div class="home-health-bar" role="img" aria-label="@Loc[nameof(Dashboard.Resources.Resources.HomeResourceStatesLabel)]">
+                    @HealthBarSegment(summary.Running, summary.Total, "state-success")
+                    @HealthBarSegment(summary.Pending, summary.Total, "state-pending")
+                    @HealthBarSegment(summary.Attention, summary.Total, "state-error")
+                    @HealthBarSegment(summary.Inactive, summary.Total, "state-neutral")
+                </div>
+                <ul class="home-legend">
+                    @HealthLegendItem(summary.Running, "state-success", Loc[nameof(Dashboard.Resources.Resources.HomeRunningLabel)])
+                    @HealthLegendItem(summary.Pending, "state-pending", Loc[nameof(Dashboard.Resources.Resources.HomePendingLabel)])
+                    @HealthLegendItem(summary.Attention, "state-error", Loc[nameof(Dashboard.Resources.Resources.HomeNeedsAttentionLabel)])
+                    @HealthLegendItem(summary.Inactive, "state-neutral", Loc[nameof(Dashboard.Resources.Resources.HomeInactiveLabel)])
+                </ul>
+            }
+        </section>
+
+        <section class="home-kpis" aria-label="@Loc[nameof(Dashboard.Resources.Resources.HomeTelemetryLandmark)]">
+            <div class="home-kpi">
+                <div class="home-kpi-header">
+                    <span class="home-kpi-icon"><FluentIcon Value="@(new Icons.Regular.Size16.SlideTextSparkle())" Width="18px" Color="Color.Custom" CustomColor="currentColor" /></span>
+                    <a class="home-kpi-title" href="@DashboardUrls.StructuredLogsUrl()">@Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewLogsTitle)]</a>
+                </div>
+                <div class="home-kpi-stats">
+                    @KpiStat(_telemetry?.LogCount, Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewTotal)], DashboardUrls.StructuredLogsUrl(), null)
+                    @KpiStat(_telemetry?.WarningLogCount, Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewWarnings)], DashboardUrls.StructuredLogsUrl(logLevel: "warning"), "warning")
+                    @KpiStat(_telemetry?.ErrorLogCount, Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewErrors)], DashboardUrls.StructuredLogsUrl(logLevel: "error"), "error")
+                </div>
+            </div>
+            <div class="home-kpi">
+                <div class="home-kpi-header">
+                    <span class="home-kpi-icon"><FluentIcon Value="@(new Icons.Regular.Size16.GanttChart())" Width="18px" Color="Color.Custom" CustomColor="currentColor" /></span>
+                    <a class="home-kpi-title" href="@DashboardUrls.TracesUrl()">@Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewTracesTitle)]</a>
+                </div>
+                <div class="home-kpi-stats">
+                    @KpiStat(_telemetry?.TraceCount, Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewTotal)], DashboardUrls.TracesUrl(), null)
+                    @KpiStat(_telemetry?.FailedTraceCount, Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewFailed)], s_failedTracesUrl, "error")
+                </div>
+            </div>
+            <div class="home-kpi">
+                <div class="home-kpi-header">
+                    <span class="home-kpi-icon"><FluentIcon Value="@(new Icons.Regular.Size16.ChartMultiple())" Width="18px" Color="Color.Custom" CustomColor="currentColor" /></span>
+                    <a class="home-kpi-title" href="@DashboardUrls.MetricsUrl()">@Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewMetricsTitle)]</a>
+                </div>
+                <div class="home-kpi-stats">
+                    @KpiStat(_telemetry?.MeterCount, Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewMeters)], DashboardUrls.MetricsUrl(), null)
+                    @KpiStat(_telemetry?.InstrumentCount, Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewInstruments)], DashboardUrls.MetricsUrl(), null)
+                </div>
+            </div>
+        </section>
+
+        <div class="home-columns">
+            <section class="home-section" aria-labelledby="home-resources-title">
+                <div class="home-section-header">
+                    <h2 id="home-resources-title">@Loc[nameof(Dashboard.Resources.Resources.HomeResourcesLabel)]</h2>
+                    <span class="home-section-count">@FormatCount(resources.Count)</span>
+                </div>
+                @if (resources.Count == 0)
+                {
+                    <div class="home-empty">@Loc[nameof(Dashboard.Resources.Resources.ResourcesNoResources)]</div>
+                }
+                else
+                {
+                    <div class="home-tiles">
+                        @foreach (var resource in resources)
+                        {
+                            var resourceName = GetResourceName(resource);
+                            var stateViewModel = ResourceStateViewModel.GetStateViewModel(resource, ColumnsLoc);
+                            var errorCount = GetUnviewedErrorCount(resource);
+                            var primaryUrl = GetPrimaryUrl(resource);
+                            <div class="home-tile @ResourcesLayout.GetStateClass(resource)" @key="resource.Name">
+                                <span class="home-tile-icon">
+                                    <FluentIcon Width="18px"
+                                                Color="Color.Custom"
+                                                CustomColor="@ColorGenerator.Instance.GetColorVariableByKey(resourceName)"
+                                                Value="@ResourceIconHelpers.GetIconForResource(IconResolver, resource, IconSize.Size20)" />
+                                </span>
+                                <span class="home-tile-text">
+                                    @* The name link covers the whole tile, so the tile is clickable while the URL stays a separate link. *@
+                                    <a class="home-tile-name" href="@DashboardUrls.ResourceOverviewUrl(resourceName)" title="@($"{resource.ResourceType}: {resourceName}")">@resourceName</a>
+                                    <span class="home-tile-sub">
+                                        <span class="home-tile-state">
+                                            <FluentIcon Value="@stateViewModel.Icon" Width="12px" Color="@stateViewModel.Color" />
+                                            @stateViewModel.Text
+                                        </span>
+                                        <span aria-hidden="true">·</span>
+                                        <span class="home-tile-type">@resource.ResourceType</span>
+                                    </span>
+                                    @if (primaryUrl is not null)
+                                    {
+                                        <a class="home-tile-url" href="@primaryUrl.Url" target="_blank" rel="noopener noreferrer" title="@primaryUrl.Url">
+                                            <FluentIcon Value="@(new Icons.Regular.Size16.Open())" Width="12px" Color="Color.Custom" CustomColor="currentColor" />
+                                            <span>@primaryUrl.Text</span>
+                                        </a>
+                                    }
+                                </span>
+                                @if (errorCount > 0)
+                                {
+                                    <span class="home-error-badge" title="@string.Format(CultureInfo.CurrentCulture, Loc[nameof(Dashboard.Resources.Resources.HomeUnviewedErrors)], errorCount)">@errorCount</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+
+            <div class="home-side">
+                <section class="home-section" aria-labelledby="home-errors-title">
+                    <div class="home-section-header">
+                        <FluentIcon Value="@(new Icons.Regular.Size16.ErrorCircle())" Color="Color.Custom" CustomColor="var(--error)" />
+                        <h2 id="home-errors-title">@Loc[nameof(Dashboard.Resources.Resources.HomeRecentErrorsTitle)]</h2>
+                        <a class="home-section-link" href="@DashboardUrls.StructuredLogsUrl(logLevel: "error")">@Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewViewAll)]</a>
+                    </div>
+                    @if (_telemetry is null)
+                    {
+                        <div class="home-empty"><FluentSpinner Size="SpinnerSize.ExtraSmall" /></div>
+                    }
+                    else if (_telemetry.RecentErrors.Count == 0)
+                    {
+                        <div class="home-empty">
+                            <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" Color="Color.Success" />
+                            @Loc[nameof(Dashboard.Resources.Resources.HomeNoRecentErrors)]
+                        </div>
+                    }
+                    else
+                    {
+                        <ul class="home-event-list">
+                            @foreach (var log in _telemetry.RecentErrors)
+                            {
+                                var logResourceName = GetLogResourceName(log.Resource);
+                                <li @key="log.InternalId">
+                                    <a href="@DashboardUrls.StructuredLogsUrl(logResourceName, logEntryId: log.InternalId)" title="@log.Message">
+                                        <span class="home-event-title">@log.Message</span>
+                                        <span class="home-event-meta">
+                                            <span class="home-resource-dot" style="background: @ColorGenerator.Instance.GetColorVariableByKey(logResourceName)"></span>
+                                            <span class="home-event-resource">@logResourceName</span>
+                                            <span aria-hidden="true">·</span>
+                                            <span>@FormatHelpers.FormatTimeWithOptionalDate(TimeProvider, log.TimeStamp)</span>
+                                        </span>
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+
+                <section class="home-section" aria-labelledby="home-traces-title">
+                    <div class="home-section-header">
+                        <FluentIcon Value="@(new Icons.Regular.Size16.GanttChart())" Color="Color.Custom" CustomColor="var(--error)" />
+                        <h2 id="home-traces-title">@Loc[nameof(Dashboard.Resources.Resources.HomeRecentFailedTracesTitle)]</h2>
+                        <a class="home-section-link" href="@s_failedTracesUrl">@Loc[nameof(Dashboard.Resources.Resources.ResourceOverviewViewAll)]</a>
+                    </div>
+                    @if (_telemetry is null)
+                    {
+                        <div class="home-empty"><FluentSpinner Size="SpinnerSize.ExtraSmall" /></div>
+                    }
+                    else if (_telemetry.RecentFailedTraces.Count == 0)
+                    {
+                        <div class="home-empty">
+                            <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" Color="Color.Success" />
+                            @Loc[nameof(Dashboard.Resources.Resources.HomeNoFailedTraces)]
+                        </div>
+                    }
+                    else
+                    {
+                        <ul class="home-event-list">
+                            @foreach (var trace in _telemetry.RecentFailedTraces)
+                            {
+                                var traceResourceName = GetLogResourceName(trace.RootResource);
+                                <li @key="trace.TraceId">
+                                    <a href="@DashboardUrls.TraceDetailUrl(trace.TraceId)" title="@trace.FullName">
+                                        <span class="home-event-title">@trace.FullName</span>
+                                        <span class="home-event-meta">
+                                            <span class="home-resource-dot" style="background: @ColorGenerator.Instance.GetColorVariableByKey(traceResourceName)"></span>
+                                            <span class="home-event-resource">@traceResourceName</span>
+                                            <span aria-hidden="true">·</span>
+                                            <span>@DurationFormatter.FormatDuration(trace.Duration, CultureInfo.CurrentCulture)</span>
+                                            <span aria-hidden="true">·</span>
+                                            <span>@FormatHelpers.FormatTimeWithOptionalDate(TimeProvider, trace.StartTime)</span>
+                                        </span>
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private static RenderFragment HealthBarSegment(int count, int total, string stateClass) => __builder =>
+    {
+        if (count > 0)
+        {
+            <span class="home-health-segment @stateClass" style="width: @FormatPercent(count, total)"></span>
+        }
+    };
+
+    private RenderFragment HealthLegendItem(int count, string stateClass, string label) => __builder =>
+    {
+        if (count > 0)
+        {
+            <li class="home-legend-item @stateClass">
+                <span class="home-legend-swatch" aria-hidden="true"></span>
+                <span class="home-legend-value">@FormatCount(count)</span>
+                <span>@label</span>
+            </li>
+        }
+    };
+
+    private static RenderFragment KpiStat(int? value, string label, string href, string? severityClass) => __builder =>
+    {
+        <a class="home-kpi-stat @(value > 0 ? severityClass : null)" href="@href">
+            <span class="home-kpi-value">@(value is { } v ? FormatCount(v) : "–")</span>
+            <span class="home-kpi-label">@label</span>
+        </a>
+    };
+}

@@ -159,12 +159,6 @@
   <data name="NavMenuMetricsTab" xml:space="preserve">
     <value>Metrics</value>
   </data>
-  <data name="NavMenuToggleExpand" xml:space="preserve">
-    <value>Expand navigation labels</value>
-  </data>
-  <data name="NavMenuToggleCollapse" xml:space="preserve">
-    <value>Collapse navigation to icons</value>
-  </data>
   <data name="MainLayoutAspire" xml:space="preserve">
     <value>Aspire</value>
   </data>
@@ -209,5 +203,83 @@
   </data>
   <data name="DashboardRunSelectHelpTooltip" xml:space="preserve">
     <value>Switch between the live run and read-only data from previous runs. Pin a run to keep it from being automatically deleted.</value>
+  </data>
+  <data name="NavMenuLandmark" xml:space="preserve">
+    <value>Main navigation</value>
+  </data>
+  <data name="NavMenuHomeTab" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="NavMenuParametersTab" xml:space="preserve">
+    <value>Parameters</value>
+  </data>
+  <data name="NavMenuGraphTab" xml:space="preserve">
+    <value>Graph</value>
+  </data>
+  <data name="ResourcePaneLandmark" xml:space="preserve">
+    <value>Resources</value>
+  </data>
+  <data name="ResourcePaneExpand" xml:space="preserve">
+    <value>Expand resource list</value>
+  </data>
+  <data name="ResourcePaneCollapse" xml:space="preserve">
+    <value>Collapse resource list</value>
+  </data>
+  <data name="ResourcePaneOpen" xml:space="preserve">
+    <value>Show resource list</value>
+  </data>
+  <data name="ResourcePaneClose" xml:space="preserve">
+    <value>Hide resource list</value>
+  </data>
+  <data name="ResourcePaneStateFilters" xml:space="preserve">
+    <value>Filter by state</value>
+  </data>
+  <data name="ResourcePaneUnviewedErrors" xml:space="preserve">
+    <value>{0} unviewed error logs</value>
+  </data>
+  <data name="ResourcePaneTelemetryOnlyGroup" xml:space="preserve">
+    <value>Telemetry only</value>
+  </data>
+  <data name="ResourcePaneTelemetryOnly" xml:space="preserve">
+    <value>Sends telemetry, not part of the app model</value>
+  </data>
+  <data name="ResourcePaneCountSingular" xml:space="preserve">
+    <value>{0} resource</value>
+  </data>
+  <data name="ResourcePaneCountPlural" xml:space="preserve">
+    <value>{0} resources</value>
+  </data>
+  <data name="ResourceHeaderStarted" xml:space="preserve">
+    <value>Started</value>
+  </data>
+  <data name="ResourceHeaderNotFound" xml:space="preserve">
+    <value>Resource not found</value>
+  </data>
+  <data name="ResourceHeaderAllResources" xml:space="preserve">
+    <value>All resources</value>
+  </data>
+  <data name="ResourceHeaderAllResourcesDescription" xml:space="preserve">
+    <value>No resource is selected, so data from every resource is shown. Select resources in the list to filter it.</value>
+  </data>
+  <data name="ResourceTabsLandmark" xml:space="preserve">
+    <value>Resource views</value>
+  </data>
+  <data name="ResourceTabUnavailable" xml:space="preserve">
+    <value>Not available for this resource</value>
+  </data>
+  <data name="ResourceTabOverview" xml:space="preserve">
+    <value>Overview</value>
+  </data>
+  <data name="ResourceHeaderSelectedResources" xml:space="preserve">
+    <value>{0} selected resources</value>
+  </data>
+  <data name="ResourceHeaderNoSelection" xml:space="preserve">
+    <value>No resource selected</value>
+  </data>
+  <data name="ResourceHeaderNoSelectionDescription" xml:space="preserve">
+    <value>Select a resource in the list. Ctrl+click (Cmd+click on macOS) selects several resources, Shift+click selects a range.</value>
+  </data>
+  <data name="ResourcePaneResize" xml:space="preserve">
+    <value>Resize resource list</value>
   </data>
 </root>

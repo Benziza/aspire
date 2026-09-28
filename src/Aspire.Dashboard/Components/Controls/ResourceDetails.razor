@@ -15,7 +15,7 @@
         <div class="toolbar-end">
             <FluentTextInput TextInputType="TextInputType.Search" Placeholder="@ControlStringsLoc[nameof(ControlsStrings.FilterPlaceholder)]"
                           Immediate="true"
-                          Autofocus="true"
+                          Autofocus="@AutofocusFilter"
                           AutoComplete="off"
                           @bind-Value="_filter">
                 <StartTemplate>

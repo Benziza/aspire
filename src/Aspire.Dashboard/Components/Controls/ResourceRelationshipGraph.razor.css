@@ -1,0 +1,58 @@
+.relationship-graph {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 2px auto 12px;
+    overflow: visible;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.relationship-graph-edge {
+    fill: none;
+    stroke: var(--colorNeutralStroke1);
+    stroke-width: 1.25;
+}
+
+.relationship-graph-arrow {
+    fill: var(--colorNeutralStroke1);
+}
+
+.relationship-graph-node rect {
+    fill: var(--colorNeutralBackground1);
+    stroke: var(--colorNeutralStroke2);
+    stroke-width: 1;
+}
+
+.relationship-graph-node text {
+    fill: var(--colorNeutralForeground1);
+}
+
+.relationship-graph-node.center rect {
+    fill: var(--colorBrandBackground2);
+    stroke: var(--colorBrandStroke1);
+    stroke-width: 1.5;
+}
+
+.relationship-graph-node.center text {
+    font-weight: 600;
+}
+
+a.relationship-graph-node {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+a.relationship-graph-node:hover rect {
+    fill: var(--colorNeutralBackground1Hover);
+    stroke: var(--colorBrandStroke1);
+}
+
+a.relationship-graph-node:focus-visible {
+    outline: none;
+}
+
+a.relationship-graph-node:focus-visible rect {
+    stroke: var(--colorStrokeFocus2);
+    stroke-width: 2;
+}

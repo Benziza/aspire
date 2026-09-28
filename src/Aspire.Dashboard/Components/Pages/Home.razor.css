@@ -1,0 +1,525 @@
+﻿.home {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    /* The horizontal padding matches the top message bars so their edges line up with the widgets. */
+    padding: 20px 12px 28px;
+    container-type: inline-size;
+    outline: none;
+}
+
+.home-message {
+    display: flex;
+    justify-content: center;
+    padding: 48px 16px;
+}
+
+/* Shared state palette. Only swatches and icons use it, since status colors don't reach text contrast on every theme. */
+.state-success {
+    --home-state-color: var(--success);
+}
+
+.state-pending {
+    --home-state-color: var(--warning);
+}
+
+.state-warning {
+    --home-state-color: var(--warning);
+}
+
+.state-error {
+    --home-state-color: var(--error);
+}
+
+.state-neutral {
+    --home-state-color: var(--colorNeutralStroke1);
+}
+
+.home-hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 14px;
+    padding: 18px 20px 16px;
+    overflow: hidden;
+    border: 1px solid var(--colorNeutralStroke3);
+    border-radius: 12px;
+    background:
+        linear-gradient(100deg, color-mix(in srgb, var(--home-state-color) 12%, transparent) 0%, transparent 55%),
+        var(--aspire-control-background);
+}
+
+.home-hero-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.home-hero-icon {
+    display: inline-flex;
+    flex: 0 0 44px;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--home-state-color) 16%, transparent);
+}
+
+.home-hero-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.home-hero-headline {
+    margin: 0;
+    font-family: var(--aspire-font-display);
+    font-size: 20px;
+    font-weight: 600;
+    /* Headings inherit a 40px line height from the global styles. */
+    line-height: 26px;
+}
+
+.home-hero-sub {
+    color: var(--colorNeutralForeground2);
+    font-size: 12.5px;
+}
+
+.home-hero-link {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    color: var(--colorBrandForegroundLink);
+    font-size: 12.5px;
+    text-decoration: none;
+}
+
+.home-hero-link:hover {
+    text-decoration: underline;
+}
+
+.home-health-bar {
+    display: flex;
+    gap: 2px;
+    height: 8px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--colorNeutralBackground3);
+}
+
+.home-health-segment {
+    min-width: 6px;
+    height: 100%;
+    background: var(--home-state-color);
+    transition: width 0.3s ease;
+}
+
+.home-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--colorNeutralForeground2);
+    font-size: 12.5px;
+}
+
+.home-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.home-legend-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--home-state-color);
+}
+
+.home-legend-value {
+    color: var(--colorNeutralForeground1);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.home-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.home-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--colorNeutralStroke3);
+    border-radius: 12px;
+    background: var(--aspire-control-background);
+}
+
+.home-kpi-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.home-kpi-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--colorBrandBackground2);
+    color: var(--colorBrandForeground2);
+}
+
+.home-kpi-title {
+    color: var(--colorNeutralForeground1);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.home-kpi-title:hover {
+    text-decoration: underline;
+}
+
+.home-kpi-stats {
+    display: flex;
+    gap: 22px;
+}
+
+.home-kpi-stat {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    color: var(--colorNeutralForeground1);
+    text-decoration: none;
+}
+
+.home-kpi-stat:hover .home-kpi-label {
+    text-decoration: underline;
+}
+
+.home-kpi-value {
+    font-family: var(--aspire-font-display);
+    font-size: 24px;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+
+.home-kpi-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--colorNeutralForeground2);
+    font-size: 11.5px;
+}
+
+/* A dot next to non-zero warning and error counts signals severity without coloring the text. */
+.home-kpi-stat.warning .home-kpi-label::before,
+.home-kpi-stat.error .home-kpi-label::before {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    content: "";
+}
+
+.home-kpi-stat.warning .home-kpi-label::before {
+    background: var(--warning);
+}
+
+.home-kpi-stat.error .home-kpi-label::before {
+    background: var(--error);
+}
+
+.home-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.home-side {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+@container (max-width: 560px) {
+    .home-kpis {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container (max-width: 900px) {
+    .home-columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.home-section {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--colorNeutralStroke3);
+    border-radius: 12px;
+    background: var(--aspire-control-background);
+}
+
+.home-section-header {
+    display: flex;
+    min-height: 20px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.home-section-header h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    /* Headings inherit a 40px line height from the global styles, which is too tall for a card header. */
+    line-height: 20px;
+}
+
+.home-section-count {
+    padding: 0 7px;
+    border-radius: 9px;
+    background: var(--colorNeutralBackground3);
+    color: var(--colorNeutralForeground2);
+    font-size: 11.5px;
+    line-height: 18px;
+    font-variant-numeric: tabular-nums;
+}
+
+.home-section-link {
+    margin-inline-start: auto;
+    color: var(--colorBrandForegroundLink);
+    font-size: 12.5px;
+    text-decoration: none;
+}
+
+.home-section-link:hover {
+    text-decoration: underline;
+}
+
+.home-empty {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    color: var(--colorNeutralForeground2);
+    font-size: 12.5px;
+}
+
+.home-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+.home-tile {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 9px 10px 9px 12px;
+    border: 1px solid var(--colorNeutralStroke3);
+    border-radius: 10px;
+    color: var(--colorNeutralForeground1);
+    overflow: hidden;
+}
+
+/* A state-colored accent on the leading edge makes unhealthy resources stand out when scanning the grid. */
+.home-tile::before {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 3px;
+    background: var(--home-state-color);
+    content: "";
+}
+
+.home-tile:hover {
+    border-color: var(--colorNeutralStroke1);
+    background: var(--datagrid-hover-color);
+}
+
+.home-tile:has(.home-tile-name:focus-visible) {
+    outline: 2px solid var(--colorStrokeFocus2);
+    outline-offset: 1px;
+}
+
+.home-tile-icon {
+    display: inline-flex;
+    flex: 0 0 34px;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--colorNeutralBackground3);
+}
+
+.home-tile-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.home-tile-name {
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    outline: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Stretch the name link over the whole tile so the tile is one click target. */
+.home-tile-name::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+}
+
+.home-tile-url {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    margin-top: 2px;
+    color: var(--colorBrandForegroundLink);
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.home-tile-url ::deep svg {
+    flex: 0 0 auto;
+}
+
+.home-tile-url span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.home-tile-url:hover span {
+    text-decoration: underline;
+}
+
+.home-tile-sub {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow: hidden;
+    color: var(--colorNeutralForeground2);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.home-tile-type {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.home-tile-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.home-error-badge {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--error);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.home-event-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.home-event-list li {
+    border-top: 1px solid var(--colorNeutralStroke3);
+}
+
+.home-event-list li:first-child {
+    border-top: 0;
+}
+
+.home-event-list a {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 7px 0;
+    color: var(--colorNeutralForeground1);
+    text-decoration: none;
+}
+
+.home-event-list a:hover .home-event-title {
+    text-decoration: underline;
+}
+
+.home-event-title {
+    overflow: hidden;
+    font-size: 12.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.home-event-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    color: var(--colorNeutralForeground2);
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+
+.home-event-resource {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.home-resource-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+@media (max-width: 767px) {
+    .home {
+        padding: 12px;
+    }
+}

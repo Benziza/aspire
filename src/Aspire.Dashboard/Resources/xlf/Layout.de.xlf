@@ -122,9 +122,29 @@
         <target state="translated">Konsole</target>
         <note />
       </trans-unit>
+      <trans-unit id="NavMenuGraphTab">
+        <source>Graph</source>
+        <target state="new">Graph</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="NavMenuHomeTab">
+        <source>Home</source>
+        <target state="new">Home</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="NavMenuLandmark">
+        <source>Main navigation</source>
+        <target state="new">Main navigation</target>
+        <note />
+      </trans-unit>
       <trans-unit id="NavMenuMetricsTab">
         <source>Metrics</source>
         <target state="translated">Metriken</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="NavMenuParametersTab">
+        <source>Parameters</source>
+        <target state="new">Parameters</target>
         <note />
       </trans-unit>
       <trans-unit id="NavMenuResourcesTab">
@@ -137,16 +157,6 @@
         <target state="translated">Strukturiert</target>
         <note />
       </trans-unit>
-      <trans-unit id="NavMenuToggleCollapse">
-        <source>Collapse navigation to icons</source>
-        <target state="new">Collapse navigation to icons</target>
-        <note />
-      </trans-unit>
-      <trans-unit id="NavMenuToggleExpand">
-        <source>Expand navigation labels</source>
-        <target state="new">Expand navigation labels</target>
-        <note />
-      </trans-unit>
       <trans-unit id="NavMenuTracesTab">
         <source>Traces</source>
         <target state="translated">Überwachungen</target>
@@ -155,6 +165,116 @@
       <trans-unit id="PageLayoutViewFilters">
         <source>View filters</source>
         <target state="translated">Filter anzeigen</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceHeaderAllResources">
+        <source>All resources</source>
+        <target state="new">All resources</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceHeaderAllResourcesDescription">
+        <source>No resource is selected, so data from every resource is shown. Select resources in the list to filter it.</source>
+        <target state="new">No resource is selected, so data from every resource is shown. Select resources in the list to filter it.</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceHeaderNoSelection">
+        <source>No resource selected</source>
+        <target state="new">No resource selected</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceHeaderNoSelectionDescription">
+        <source>Select a resource in the list. Ctrl+click (Cmd+click on macOS) selects several resources, Shift+click selects a range.</source>
+        <target state="new">Select a resource in the list. Ctrl+click (Cmd+click on macOS) selects several resources, Shift+click selects a range.</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceHeaderNotFound">
+        <source>Resource not found</source>
+        <target state="new">Resource not found</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceHeaderSelectedResources">
+        <source>{0} selected resources</source>
+        <target state="new">{0} selected resources</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceHeaderStarted">
+        <source>Started</source>
+        <target state="new">Started</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneClose">
+        <source>Hide resource list</source>
+        <target state="new">Hide resource list</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneCollapse">
+        <source>Collapse resource list</source>
+        <target state="new">Collapse resource list</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneCountPlural">
+        <source>{0} resources</source>
+        <target state="new">{0} resources</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneCountSingular">
+        <source>{0} resource</source>
+        <target state="new">{0} resource</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneExpand">
+        <source>Expand resource list</source>
+        <target state="new">Expand resource list</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneLandmark">
+        <source>Resources</source>
+        <target state="new">Resources</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneOpen">
+        <source>Show resource list</source>
+        <target state="new">Show resource list</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneResize">
+        <source>Resize resource list</source>
+        <target state="new">Resize resource list</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneStateFilters">
+        <source>Filter by state</source>
+        <target state="new">Filter by state</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneTelemetryOnly">
+        <source>Sends telemetry, not part of the app model</source>
+        <target state="new">Sends telemetry, not part of the app model</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneTelemetryOnlyGroup">
+        <source>Telemetry only</source>
+        <target state="new">Telemetry only</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourcePaneUnviewedErrors">
+        <source>{0} unviewed error logs</source>
+        <target state="new">{0} unviewed error logs</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceTabOverview">
+        <source>Overview</source>
+        <target state="new">Overview</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceTabUnavailable">
+        <source>Not available for this resource</source>
+        <target state="new">Not available for this resource</target>
+        <note />
+      </trans-unit>
+      <trans-unit id="ResourceTabsLandmark">
+        <source>Resource views</source>
+        <target state="new">Resource views</target>
         <note />
       </trans-unit>
     </body>

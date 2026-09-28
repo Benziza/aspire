@@ -3,9 +3,11 @@
 
 using System.Text.RegularExpressions;
 using Aspire.Dashboard.Components.CustomIcons;
+using Aspire.Dashboard.Configuration;
 using Aspire.Dashboard.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Microsoft.JSInterop;
 using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons;
 
@@ -52,6 +54,9 @@ public partial class MobileNavMenu : ComponentBase, IAsyncDisposable
 
     [Inject]
     public required IDashboardClient DashboardClient { get; init; }
+
+    [Inject]
+    public required IOptionsMonitor<DashboardOptions> DashboardOptions { get; init; }
 
     [Inject]
     public required IStringLocalizer<Resources.Layout> Loc { get; init; }
@@ -150,45 +155,72 @@ public partial class MobileNavMenu : ComponentBase, IAsyncDisposable
         if (DashboardClient.IsEnabled)
         {
             yield return new MobileNavMenuEntry(
+                Loc[nameof(Resources.Layout.NavMenuHomeTab)],
+                () => NavigateToAsync(DashboardUrls.HomeUrl()),
+                DesktopNavMenu.HomeIcon(),
+                ActiveIcon: DesktopNavMenu.HomeIcon(active: true),
+                LinkMatchRegex: GetIndexPageRegex(DashboardUrls.HomeUrl())
+            );
+
+            // Telemetry pages are tabs of the Resources view, so they highlight the Resources entry.
+            yield return new MobileNavMenuEntry(
                 Loc[nameof(Resources.Layout.NavMenuResourcesTab)],
-                () => NavigateToAsync(DashboardUrls.ResourcesUrl()),
+                () => NavigateToAsync(DashboardUrls.ResourceOverviewUrl()),
                 DesktopNavMenu.ResourcesIcon(),
                 ActiveIcon: DesktopNavMenu.ResourcesIcon(active: true),
-                LinkMatchRegex: GetIndexPageRegex(DashboardUrls.ResourcesUrl())
+                LinkMatchRegex: GetNonIndexPageRegex(
+                    DashboardUrls.ResourceOverviewUrl(),
+                    DashboardUrls.ConsoleLogsUrl(),
+                    DashboardUrls.StructuredLogsUrl(),
+                    DashboardUrls.TracesUrl(),
+                    DashboardUrls.MetricsUrl())
             );
 
             yield return new MobileNavMenuEntry(
-                Loc[nameof(Resources.Layout.NavMenuConsoleLogsTab)],
-                () => NavigateToAsync(DashboardUrls.ConsoleLogsUrl()),
-                DesktopNavMenu.ConsoleLogsIcon(),
-                ActiveIcon: DesktopNavMenu.ConsoleLogsIcon(active: true),
-                LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.ConsoleLogsUrl())
+                Loc[nameof(Resources.Layout.NavMenuParametersTab)],
+                () => NavigateToAsync(DashboardUrls.ParametersUrl()),
+                DesktopNavMenu.ParametersIcon(),
+                ActiveIcon: DesktopNavMenu.ParametersIcon(active: true),
+                LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.ParametersUrl())
+            );
+
+            if (DashboardOptions.CurrentValue.UI.DisableResourceGraph != true)
+            {
+                yield return new MobileNavMenuEntry(
+                    Loc[nameof(Resources.Layout.NavMenuGraphTab)],
+                    () => NavigateToAsync(DashboardUrls.GraphUrl()),
+                    DesktopNavMenu.GraphIcon(),
+                    ActiveIcon: DesktopNavMenu.GraphIcon(active: true),
+                    LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.GraphUrl())
+                );
+            }
+        }
+        else
+        {
+            yield return new MobileNavMenuEntry(
+                StructuredLogsLoc[nameof(Resources.StructuredLogs.StructuredLogsHeader)],
+                () => NavigateToAsync(DashboardUrls.StructuredLogsUrl()),
+                DesktopNavMenu.StructuredLogsIcon(),
+                ActiveIcon: DesktopNavMenu.StructuredLogsIcon(active: true),
+                LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.StructuredLogsUrl())
+            );
+
+            yield return new MobileNavMenuEntry(
+                Loc[nameof(Resources.Layout.NavMenuTracesTab)],
+                () => NavigateToAsync(DashboardUrls.TracesUrl()),
+                DesktopNavMenu.TracesIcon(),
+                ActiveIcon: DesktopNavMenu.TracesIcon(active: true),
+                LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.TracesUrl())
+            );
+
+            yield return new MobileNavMenuEntry(
+                Loc[nameof(Resources.Layout.NavMenuMetricsTab)],
+                () => NavigateToAsync(DashboardUrls.MetricsUrl()),
+                DesktopNavMenu.MetricsIcon(),
+                ActiveIcon: DesktopNavMenu.MetricsIcon(active: true),
+                LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.MetricsUrl())
             );
         }
-
-        yield return new MobileNavMenuEntry(
-            StructuredLogsLoc[nameof(Resources.StructuredLogs.StructuredLogsHeader)],
-            () => NavigateToAsync(DashboardUrls.StructuredLogsUrl()),
-            DesktopNavMenu.StructuredLogsIcon(),
-            ActiveIcon: DesktopNavMenu.StructuredLogsIcon(active: true),
-            LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.StructuredLogsUrl())
-        );
-
-        yield return new MobileNavMenuEntry(
-            Loc[nameof(Resources.Layout.NavMenuTracesTab)],
-            () => NavigateToAsync(DashboardUrls.TracesUrl()),
-            DesktopNavMenu.TracesIcon(),
-            ActiveIcon: DesktopNavMenu.TracesIcon(active: true),
-            LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.TracesUrl())
-        );
-
-        yield return new MobileNavMenuEntry(
-            Loc[nameof(Resources.Layout.NavMenuMetricsTab)],
-            () => NavigateToAsync(DashboardUrls.MetricsUrl()),
-            DesktopNavMenu.MetricsIcon(),
-            ActiveIcon: DesktopNavMenu.MetricsIcon(active: true),
-            LinkMatchRegex: GetNonIndexPageRegex(DashboardUrls.MetricsUrl())
-        );
 
         yield return new MobileNavMenuEntry(
             Loc[nameof(Resources.Layout.MainLayoutAspireRepoLink)],
@@ -236,10 +268,12 @@ public partial class MobileNavMenu : ComponentBase, IAsyncDisposable
         );
     }
 
-    private static Regex GetNonIndexPageRegex(string pageRelativeBasePath)
+    private static Regex GetNonIndexPageRegex(params string[] pageRelativeBasePaths)
     {
-        pageRelativeBasePath = Regex.Escape(pageRelativeBasePath);
-        return new Regex($"^({pageRelativeBasePath}(\\?.*)?|{pageRelativeBasePath}/.+)$", LinkMatchRegexOptions);
+        var alternatives = pageRelativeBasePaths
+            .Select(Regex.Escape)
+            .Select(path => $"{path}(\\?.*)?|{path}/.+");
+        return new Regex($"^({string.Join("|", alternatives)})$", LinkMatchRegexOptions);
     }
 
     private static Regex GetIndexPageRegex(string pageRelativeBasePath)

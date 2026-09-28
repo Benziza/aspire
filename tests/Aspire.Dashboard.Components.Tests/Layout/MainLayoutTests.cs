@@ -40,8 +40,6 @@ public partial class MainLayoutTests : DashboardTestContext
         {
             switch (key)
             {
-                case BrowserStorageKeys.NavMenuExpanded:
-                    return (true, false);
                 case BrowserStorageKeys.UnsecuredTelemetryMessageDismissedKey:
                 case BrowserStorageKeys.UnsecuredEndpointMessageDismissedKey:
                     return (false, false);
@@ -90,8 +88,6 @@ public partial class MainLayoutTests : DashboardTestContext
         {
             switch (key)
             {
-                case BrowserStorageKeys.NavMenuExpanded:
-                    return (true, false);
                 case BrowserStorageKeys.UnsecuredTelemetryMessageDismissedKey:
                     return (unsecuredTelemetryMessageDismissedKey, unsecuredTelemetryMessageDismissedKey);
                 case BrowserStorageKeys.UnsecuredEndpointMessageDismissedKey:
@@ -127,8 +123,6 @@ public partial class MainLayoutTests : DashboardTestContext
         {
             switch (key)
             {
-                case BrowserStorageKeys.NavMenuExpanded:
-                    return (true, false);
                 case BrowserStorageKeys.UnsecuredTelemetryMessageDismissedKey:
                 case BrowserStorageKeys.UnsecuredEndpointMessageDismissedKey:
                     return (false, false); // Message not dismissed, but should be suppressed by config if suppressUnsecuredMessage is true
@@ -160,45 +154,8 @@ public partial class MainLayoutTests : DashboardTestContext
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task NavMenuExpanded_RestoresAndPersistsToggledState(bool storedExpanded)
-    {
-        object? persistedValue = null;
-        var localStorage = new TestLocalStorage
-        {
-            OnGetUnprotectedAsync = key => key switch
-            {
-                BrowserStorageKeys.NavMenuExpanded => (true, storedExpanded),
-                BrowserStorageKeys.UnsecuredTelemetryMessageDismissedKey => (false, false),
-                BrowserStorageKeys.UnsecuredEndpointMessageDismissedKey => (false, false),
-                _ => throw new InvalidOperationException("Unexpected key.")
-            },
-            OnSetUnprotectedAsync = (key, value) =>
-            {
-                Assert.Equal(BrowserStorageKeys.NavMenuExpanded, key);
-                persistedValue = value;
-            }
-        };
-
-        SetupMainLayoutServices(localStorage: localStorage);
-
-        var cut = Render<MainLayout>(builder =>
-        {
-            builder.Add(p => p.ViewportInformation, new ViewportInformation(IsDesktop: true, IsUltraLowHeight: false, IsUltraLowWidth: false));
-        });
-
-        cut.WaitForAssertion(() => Assert.Contains(storedExpanded ? "nav-expanded" : "nav-collapsed", cut.Find(".layout").ClassList));
-
-        await cut.InvokeAsync(() => cut.Find(".nav-toggle-button").Click());
-
-        cut.WaitForAssertion(() => Assert.Contains(storedExpanded ? "nav-collapsed" : "nav-expanded", cut.Find(".layout").ClassList));
-        Assert.Equal(!storedExpanded, Assert.IsType<bool>(persistedValue));
-    }
-
-    [Theory]
-    [InlineData(BrowserStorageKeys.NavMenuExpanded)]
     [InlineData(BrowserStorageKeys.UnsecuredEndpointMessageDismissedKey)]
+    [InlineData(BrowserStorageKeys.UnsecuredTelemetryMessageDismissedKey)]
     public void OnInitialize_BrowserStorageReadFails_ContinuesInitialization(string failedKey)
     {
         var readKeys = new List<string>();
@@ -207,7 +164,7 @@ public partial class MainLayoutTests : DashboardTestContext
             OnGetUnprotectedAsync = key =>
             {
                 readKeys.Add(key);
-                return key == failedKey ? (false, false) : (true, key == BrowserStorageKeys.NavMenuExpanded);
+                return key == failedKey ? (false, false) : (true, false);
             }
         };
         SetupMainLayoutServices(localStorage: localStorage);
@@ -218,9 +175,8 @@ public partial class MainLayoutTests : DashboardTestContext
         });
 
         Assert.Equal(
-            [BrowserStorageKeys.NavMenuExpanded, BrowserStorageKeys.UnsecuredEndpointMessageDismissedKey, BrowserStorageKeys.UnsecuredTelemetryMessageDismissedKey],
+            [BrowserStorageKeys.UnsecuredEndpointMessageDismissedKey, BrowserStorageKeys.UnsecuredTelemetryMessageDismissedKey],
             readKeys);
-        Assert.Contains(failedKey == BrowserStorageKeys.NavMenuExpanded ? "nav-collapsed" : "nav-expanded", cut.Find(".layout").ClassList);
         var messageBarProvider = _messageBarProvider!;
         messageBarProvider.WaitForAssertion(() => Assert.Single(messageBarProvider.FindComponents<DashboardMessageBar>()));
     }

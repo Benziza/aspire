@@ -1,5 +1,6 @@
 ﻿@page "/consolelogs"
 @page "/consolelogs/resource/{resourceName}"
+@layout ResourcesLayout
 
 @using Aspire.Dashboard.Resources
 
@@ -21,11 +22,14 @@
             <h1 class="page-header">@Loc[nameof(Dashboard.Resources.ConsoleLogs.ConsoleLogsHeader)]</h1>
         </PageTitleSection>
         <ToolbarSection>
-            <ResourceSelect Resources="_resources"
-                            AriaLabel="@ControlsStringsLoc[nameof(ControlsStrings.ResourceLabel)]"
-                            @bind-SelectedResource="PageViewModel.SelectedResource"
-                            @bind-SelectedResource:after="HandleSelectedOptionChangedAsync"
-                            LabelClass="toolbar-left" />
+            @if (ResourcesLayout is null)
+            {
+                <ResourceSelect Resources="_resources"
+                                AriaLabel="@ControlsStringsLoc[nameof(ControlsStrings.ResourceLabel)]"
+                                @bind-SelectedResource="PageViewModel.SelectedResource"
+                                @bind-SelectedResource:after="HandleSelectedOptionChangedAsync"
+                                LabelClass="toolbar-left" />
+            }
 
             @if (_activeView == ConsoleLogsView.Console)
             {
@@ -35,7 +39,7 @@
                                       SelectedResource="@PageViewModel.SelectedResource" />
             }
 
-            @if (PageViewModel.SelectedResource is { } selectedResource && !IsAllSelected())
+            @if (ResourcesLayout is null && PageViewModel.SelectedResource is { } selectedResource && !IsAllSelected())
             {
                 if (ViewportInformation.IsDesktop && (_highlightedCommands.Count > 0 || _resourceMenuItems.Count > 0))
                 {

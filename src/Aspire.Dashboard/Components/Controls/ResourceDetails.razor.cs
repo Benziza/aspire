@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Concurrent;
@@ -11,9 +11,7 @@ using Aspire.Dashboard.Model;
 using Aspire.Dashboard.Resources;
 using Aspire.Dashboard.Telemetry;
 using Aspire.Dashboard.Utils;
-using Aspire.Shared;
 using Google.Protobuf.WellKnownTypes;
-using Humanizer;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons;
@@ -30,6 +28,12 @@ public partial class ResourceDetails : IComponentWithTelemetry, IDisposable
 
     [Parameter]
     public bool ShowSpecOnlyToggle { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the filter input is focused when the details are displayed.
+    /// </summary>
+    [Parameter]
+    public bool AutofocusFilter { get; set; } = true;
 
     [Parameter]
     public bool ShowHiddenResources { get; set; }
@@ -447,7 +451,7 @@ public partial class ResourceDetails : IComponentWithTelemetry, IDisposable
 
     public Task OnViewRelationshipAsync(ResourceDetailRelationshipViewModel relationship)
     {
-        NavigationManager.NavigateTo(DashboardUrls.ResourcesUrl(resource: relationship.Resource.Name));
+        NavigationManager.NavigateTo(DashboardUrls.ResourceOverviewUrl(relationship.Resource.Name));
         return Task.CompletedTask;
     }
 
@@ -461,43 +465,9 @@ public partial class ResourceDetails : IComponentWithTelemetry, IDisposable
         ], Logger);
     }
 
-    private string GetHealthStatusWithTime(HealthReportViewModel context)
-    {
-        var statusText = context.HealthStatus?.Humanize() ?? Loc[nameof(Aspire.Dashboard.Resources.Resources.WaitingHealthDataStatusMessage)];
+    private string GetHealthStatusWithTime(HealthReportViewModel context) => HealthReportFormatter.GetStatusWithTime(context, Loc);
 
-        // Show timestamp for all resources when available per @davidfowl feedback
-        if (context.LastRunAtTimeStamp.HasValue)
-        {
-            var duration = DateTime.UtcNow.Subtract(context.LastRunAtTimeStamp.Value);
-
-            // Round duration to seconds to avoid sub-second precision issues
-            var roundedDuration = TimeSpan.FromSeconds(Math.Round(duration.TotalSeconds));
-
-            // Display "just now" for health checks that ran in the last 10 seconds
-            if (roundedDuration.TotalSeconds < 10)
-            {
-                return Loc[nameof(Aspire.Dashboard.Resources.Resources.HealthCheckStatusJustNowFormat), statusText];
-            }
-
-            var formattedDuration = DurationFormatter.FormatDuration(roundedDuration, System.Globalization.CultureInfo.CurrentCulture);
-            return Loc[nameof(Aspire.Dashboard.Resources.Resources.HealthCheckStatusWithTimeFormat), statusText, formattedDuration];
-        }
-
-        return statusText;
-    }
-
-    private string? GetHealthStatusTooltip(HealthReportViewModel context)
-    {
-        var statusText = context.HealthStatus?.Humanize() ?? Loc[nameof(Aspire.Dashboard.Resources.Resources.WaitingHealthDataStatusMessage)];
-
-        if (context.LastRunAtTimeStamp.HasValue)
-        {
-            var localTime = FormatHelpers.FormatTimeWithOptionalDate(TimeProvider, context.LastRunAtTimeStamp.Value);
-            return Loc[nameof(Aspire.Dashboard.Resources.Resources.HealthCheckStatusWithTimeTooltipFormat), statusText, localTime];
-        }
-
-        return null;
-    }
+    private string? GetHealthStatusTooltip(HealthReportViewModel context) => HealthReportFormatter.GetStatusTooltip(context, Loc, TimeProvider);
 
     public void Dispose()
     {
