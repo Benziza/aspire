@@ -33,8 +33,9 @@ applyTo: "src/Aspire.Dashboard/**/*.{cs,razor,js}"
 
 ### Browser verification with Playwright
 
-- Start the exact AppHost using the normal lifecycle workflow and wait for `aspire-dashboard` to be healthy before opening it in Playwright. Do not guess the dashboard port. Choose one of these local-development authentication approaches:
-  - **Authenticated (default):** Run `aspire ps --format json --non-interactive`, find the running entry whose `appHostPath` matches the selected AppHost, and pass its `dashboardUrl` directly to Playwright (for example, `await page.goto(dashboardUrl)`). The URL includes `/login?t=<token>` when browser-token authentication is enabled; visiting it establishes the browser session. Treat the full URL as a credential: do not commit it, paste it into reports, or include it in screenshots or logs.
+- Start the exact AppHost using the normal lifecycle workflow, then run `aspire wait aspire-dashboard --apphost <apphost-path> --non-interactive` before opening Playwright. The first TestShop launch can spend time building before it appears in `aspire ps`; an editor "started" response means the launch was accepted, not that the dashboard is ready. Do not start a second AppHost or guess a port while the first is building.
+- Choose one local-development authentication approach:
+  - **Authenticated (preferred for an already-running AppHost):** Read `aspire ps --format Json --non-interactive` in the same process as the Playwright code. Select the entry whose `appHostPath` is the exact AppHost path and use its `dashboardUrl` for `page.goto(dashboardUrl)`. The URL may contain `/login?t=<token>`, which establishes the browser session. Keep it in memory: do not print the raw `aspire ps` JSON, log browser navigation URLs, include the URL in screenshots or accessibility dumps, or commit it. Read a fresh `dashboardUrl` after a dashboard restart.
   - **Anonymous local AppHost:** Set `ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true` **before starting** the AppHost. For a CLI-managed launch, set it in the same shell as `aspire start`; for an editor-managed launch, set it in the AppHost's launch environment before starting through the editor:
 
     ```powershell
@@ -43,22 +44,26 @@ applyTo: "src/Aspire.Dashboard/**/*.{cs,razor,js}"
     Remove-Item Env:ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS
     ```
 
-    Use this only on a trusted local development machine. `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` does **not** disable dashboard authentication. Get the URL for this AppHost from `aspire ps --format json --non-interactive`; in anonymous mode, `dashboardUrl` is the base URL without a login token.
-- Open the selected `dashboardUrl` in a Playwright browser context, assert the dashboard loaded, and exercise the changed UI. For example, in a Playwright test with `page` and `expect` available:
+    Use this only on a trusted local development machine. `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` does **not** disable dashboard authentication. Get the URL for this AppHost from `aspire ps --format Json --non-interactive`; in anonymous mode, `dashboardUrl` is the base URL without a login token. Switching authentication modes requires an AppHost restart, so prefer the existing authenticated session for a quick loop.
+- Open the URL in Playwright and assert both page loading and the actual changed behavior. A visible Resources heading alone is not proof that resource data has loaded: wait for a known resource row (or another relevant UI state) before interacting with it. For example, with `page`, `expect`, and `dashboardUrl` available:
 
 	```typescript
 	await page.goto(dashboardUrl);
 	await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible();
+	await expect(page.getByRole('row').filter({ hasText: 'basketcache' })).toBeVisible();
 	```
 
-### Rebuilding the dashboard
+  Replace `basketcache` with a resource in the selected AppHost. For a local HTTPS certificate not trusted by the automation browser, configure that *local* Playwright context with `ignoreHTTPSErrors: true`.
 
-- When the dashboard is running in an AppHost as the `aspire-dashboard` project resource (`Projects.Aspire_Dashboard`) and **only the dashboard project changed**, use its **Rebuild** command instead of restarting the whole AppHost:
+### Rebuilding the dashboard in a running AppHost
+
+- When the dashboard is running as the `aspire-dashboard` **project** resource (`Projects.Aspire_Dashboard`) and **only the dashboard project changed**, reuse the AppHost and rebuild that resource. The fastest reliable automated loop is: verify the existing page, edit, run the CLI Rebuild command to completion, wait for health, then reload/reopen the dashboard in Playwright and assert the changed UI. In TestShop, simply editing Razor markup did not update the running page; rebuilding applied the edit without restarting the AppHost.
 
 	```powershell
 	aspire resource aspire-dashboard rebuild --apphost <apphost-path> --non-interactive
 	aspire wait aspire-dashboard --apphost <apphost-path> --non-interactive
 	```
 
-- Select the exact running AppHost path when multiple AppHosts exist. The rebuild stops the dashboard project, builds it, and starts it again; a brief dashboard browser disconnect is expected. Check the command result and wait for the resource to become healthy before testing the UI. Reload the Playwright page to reconnect to the restarted dashboard.
+- Use the exact running AppHost path when multiple AppHosts exist. Rebuild stops the dashboard, builds, and restarts it; the browser briefly disconnects. Check the rebuild command's exit status and build output **before** waiting for health. Then fetch the current dashboard URL, reload or revisit it in Playwright, and assert the specific new behavior. Do not interpret an old page still showing the pre-edit markup as success.
+- The dashboard UI also offers **Rebuild** in the `aspire-dashboard` resource's **Actions** menu. That resource is hidden by default: enable **View options > Show hidden resources** first. UI-triggered rebuild is asynchronous; a simultaneous `aspire wait` can see the temporary Stopped state and fail before the build completes. Wait for the action/build to finish (or check the `aspire-dashboard-rebuilder` state and exit code with `aspire describe --include-hidden`), then wait for dashboard health and verify in Playwright. The CLI command is preferable for agents because it reports build failure and completion directly. If a build fails or the new UI is absent, inspect `aspire logs aspire-dashboard --apphost <apphost-path> --tail 80 --non-interactive` rather than repeatedly restarting the whole AppHost.
 - The built-in dashboard executable is not a project resource and does not expose this Rebuild command. If the AppHost, `Aspire.Hosting`, or **any other project** changed, restart the AppHost through the normal lifecycle workflow instead of only rebuilding the dashboard; the running AppHost will not load those changes from a dashboard rebuild.

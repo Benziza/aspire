@@ -243,6 +243,9 @@ internal static class CommandsConfigurationExtensions
         var rebuilderInstanceName = rebuilderResource.GetResolvedResourceNames()[0];
         var logForwardTask = ForwardLogsAsync(loggerService, rebuilderInstanceName, mainLogger, buildOutput, logCts.Token);
         var logForwardingStopped = false;
+        var previousRebuilderVersion = resourceNotificationService.TryGetCurrentState(rebuilderInstanceName, out var previousRebuilderEvent)
+            ? previousRebuilderEvent.Snapshot.Version
+            : -1;
 
         async Task<ExecuteCommandResult> FinishAsync(ExecuteCommandResult result)
         {
@@ -257,26 +260,31 @@ internal static class CommandsConfigurationExtensions
 
         try
         {
-            // Start the rebuilder resource (runs dotnet build).
-            LogBuildInformation(mainLogger, buildOutput, "Building project...");
-            await orchestrator.StartResourceAsync(rebuilderInstanceName, cancellationToken).ConfigureAwait(false);
-
-            // Wait for the rebuilder to reach a terminal state, with a timeout.
             int? exitCode = null;
             using var buildTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             buildTimeoutCts.CancelAfter(TimeSpan.FromMinutes(10));
 
             try
             {
-                await foreach (var evt in resourceNotificationService.WatchAsync(buildTimeoutCts.Token).ConfigureAwait(false))
-                {
-                    if (evt.Resource == rebuilderResource &&
-                        KnownResourceStates.TerminalStates.Contains(evt.Snapshot.State?.Text))
-                    {
-                        exitCode = evt.Snapshot.ExitCode;
-                        break;
-                    }
-                }
+                // A restarted rebuilder can briefly publish the previous process's Finished
+                // state after Starting. Wait for this run's Running state before accepting a
+                // terminal result, and subscribe before starting so a fast build isn't missed.
+                var runningTask = resourceNotificationService.WaitForResourceAsync(rebuilderResource.Name,
+                    evt => evt.ResourceId == rebuilderInstanceName &&
+                           evt.Snapshot.Version > previousRebuilderVersion &&
+                           evt.Snapshot.State?.Text == KnownResourceStates.Running,
+                    buildTimeoutCts.Token);
+
+                LogBuildInformation(mainLogger, buildOutput, "Building project...");
+                await orchestrator.StartResourceAsync(rebuilderInstanceName, cancellationToken).ConfigureAwait(false);
+
+                var runningEvent = await runningTask.ConfigureAwait(false);
+                var terminalEvent = await resourceNotificationService.WaitForResourceAsync(rebuilderResource.Name,
+                    evt => evt.ResourceId == rebuilderInstanceName &&
+                           evt.Snapshot.Version > runningEvent.Snapshot.Version &&
+                           KnownResourceStates.TerminalStates.Contains(evt.Snapshot.State?.Text),
+                    buildTimeoutCts.Token).ConfigureAwait(false);
+                exitCode = terminalEvent.Snapshot.ExitCode;
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
