@@ -109,6 +109,8 @@
     position: relative;
     display: flex;
     align-items: center;
+    /* Include the close button's inset around its 12px icon in the tab's trailing spacing. */
+    padding-inline-end: calc(12px - (var(--aspire-control-height) - 12px) / 2);
     max-width: 220px;
     flex: 0 0 auto;
 }
