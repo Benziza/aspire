@@ -386,8 +386,11 @@ internal static class CommandsConfigurationExtensions
 
     internal static CancellationToken GetCommandCancellationToken(ExecuteCommandContext context, IResource resource)
     {
-        // Restarting or rebuilding a project-backed dashboard stops the process that owns the command
-        // request. Use the AppHost lifetime so the operation survives that expected client disconnect.
+        // When the dashboard initiates its own restart or rebuild, stopping its project closes
+        // the connection that carries the command. That cancels context.CancellationToken before
+        // the dashboard can be started again. Use the AppHost shutdown token so the command
+        // survives this expected disconnect, but still stops when the AppHost shuts down.
+        // Other resources leave the dashboard connected and retain request cancellation.
         if (string.Equals(resource.Name, KnownResourceNames.AspireDashboard, StringComparisons.ResourceName) &&
             resource.HasAnnotationOfType<ProjectLaunchDefaultsAnnotation>())
         {
