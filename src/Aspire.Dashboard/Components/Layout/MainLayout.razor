@@ -124,8 +124,6 @@
             LaunchHelpAsync="@LaunchHelpAsync"
             LaunchAIAgentsAsync="@LaunchAIAgentsAsync"
             IsAgentHelpEnabled="@(Options.CurrentValue.UI.DisableAgentHelp != true)"
-            IsTerminalDockEnabled="@IsTerminalDockEnabled"
-            ToggleTerminalDockAsync="@ToggleTerminalDockAsync"
             LaunchNotificationsAsync="@LaunchNotificationsAsync"
             LaunchSettingsAsync="@LaunchSettingsAsync" />
     }
@@ -153,7 +151,7 @@
     {
         @* Removing the dock cancels its selected-run subscription and shortcut. Returning to the live run starts a
            new subscription rather than reusing the stream chosen for a previous selection. *@
-        <TerminalDock @key="RunSelection.SelectedRun.RunId" @ref="_terminalDock" />
+        <TerminalDock @key="RunSelection.SelectedRun.RunId" />
     }
     <ResourceServiceConnectionProvider />
     <div id="blazor-error-ui">

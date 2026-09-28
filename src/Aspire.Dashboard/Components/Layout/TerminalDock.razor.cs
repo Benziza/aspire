@@ -129,9 +129,6 @@ public sealed partial class TerminalDock : ComponentBase, IGlobalKeydownListener
     /// <summary>
     /// Shows the dock, or hides it if it is already showing.
     /// </summary>
-    /// <remarks>
-    /// Public so the mobile navigation menu can toggle the dock without a keyboard.
-    /// </remarks>
     public Task ToggleAsync() => InvokeAsync(() =>
     {
         if (_disposed || !DashboardClient.IsEnabled || DashboardClient.IsReadOnly)
