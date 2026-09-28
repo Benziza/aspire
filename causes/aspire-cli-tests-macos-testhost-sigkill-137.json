@@ -1,0 +1,15 @@
+{
+  "id": "aspire-cli-tests-macos-testhost-sigkill-137",
+  "type": "infra-failure",
+  "title": "Aspire.Cli.Tests (macos-latest) test host killed with exit code 137 (SIGKILL) despite all tests passing",
+  "error_pattern": "Creating dump file '.../Aspire.Cli.Tests_59563_hang.dmp'\nTest host crashed; recovered 5565 test result(s) from the TRX streaming sidecar\nTest application process didn't exit gracefully, exit code is '137'\nTest run summary: total: 5565, failed: 0, succeeded: 5529, skipped: 36",
+  "occurrences": [
+    {
+      "run_id": 36368570541,
+      "run_url": "https://github.com/microsoft/aspire/actions/runs/36368570541",
+      "job": "Tests / No-package tests (regular, Aspire.Cli.Tests, Cli, Cli, tests/Aspire.Cli.Tests/Aspire.Cli.Tests.cs... / Cli (macos-latest)",
+      "pr_number": 0,
+      "observed_at": "2026-09-28T02:55:53Z"
+    }
+  ]
+}
