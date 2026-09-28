@@ -310,6 +310,9 @@ function registerTabStrip(dock, dotNetRef) {
                 : boxes.some(box => box.right > viewport.right + 1);
             button.toggleAttribute('disabled', !canScroll);
             button.setAttribute('aria-disabled', String(!canScroll));
+            if (button.dataset.tabScroll === '1') {
+                dock.querySelector('.terminal-dock-tabs')?.toggleAttribute('data-overflow-right', canScroll);
+            }
         }
     };
     const resizeObserver = new ResizeObserver(updateOverflow);

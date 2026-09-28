@@ -38,10 +38,20 @@
 }
 
 .terminal-dock-tabs {
+    position: relative;
     display: flex;
     align-items: center;
     min-width: 0;
     flex: 0 1 auto;
+}
+
+.terminal-dock-tabs[data-overflow-right]::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 32px;
+    background: linear-gradient(to right, transparent, var(--colorNeutralBackground2));
+    pointer-events: none;
 }
 
 .terminal-dock-tablist {
@@ -85,6 +95,10 @@
 }
 
 @media (forced-colors: active) {
+    .terminal-dock-tabs[data-overflow-right]::after {
+        display: none;
+    }
+
     .terminal-dock-tab[data-drop-position]::after {
         background-color: Highlight;
         forced-color-adjust: none;

@@ -108,7 +108,7 @@ function createTabRegistration() {
     });
     const buttonByDirection = { "-1": makeButton("-1"), "1": makeButton("1") };
     const controls = { hidden: false, querySelectorAll: () => Object.values(buttonByDirection) };
-    const wrapper = { clientWidth: 200 };
+    const wrapper = { clientWidth: 200, toggleAttribute() {} };
     const tabs = ["one", "two", "three"].map((id, index) => {
         const group = {
             dataset: { terminalId: id },
