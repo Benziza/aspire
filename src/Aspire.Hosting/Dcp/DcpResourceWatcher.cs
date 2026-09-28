@@ -45,7 +45,9 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
     // The stable key avoids retaining stale entries when a delete is missed, while the UID distinguishes
     // a recreated object from an unchanged watch replay. See ProcessResourceChange.
     private readonly ConcurrentDictionary<(string Kind, string Name), ObservedResource> _observedResources = new();
-    private readonly Dictionary<(string Kind, string Name), string> _supersededResourceUids = [];
+    // Service and endpoint watches can read this map while a resource restart marks another kind.
+    private readonly ConcurrentDictionary<(string Kind, string Name), string> _supersededResourceUids = new();
+    private readonly object _incarnationLock = new();
     private readonly SemaphoreSlim _outputSemaphore = new(1);
 
     // Holds names of resources that reached terminal state and logs have already been flushed for them.
@@ -83,10 +85,11 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
     // Internal for testing.
     internal Func<string?, ValueTask>? BeforeLogBatchDeliveryAsync { get; set; }
 
-    internal async Task MarkPreviousIncarnationSupersededAsync(string kind, string name, CancellationToken cancellationToken)
+    internal void MarkPreviousIncarnationSuperseded(string kind, string name)
     {
-        await _outputSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        // Resource-stopped callbacks run under the watcher's output semaphore and may restart
+        // their resource. Only synchronize UID state here, not the callbacks that publish it.
+        lock (_incarnationLock)
         {
             var key = (kind, name);
             if (_observedResources.TryGetValue(key, out var previous) && !string.IsNullOrEmpty(previous.Uid))
@@ -95,10 +98,6 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
                 // old UID may arrive after the replacement's Starting state was published.
                 _supersededResourceUids[key] = previous.Uid;
             }
-        }
-        finally
-        {
-            _outputSemaphore.Release();
         }
     }
 
@@ -294,7 +293,11 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
         var previousState = resourceByName.TryGetValue(resource.Metadata.Name, out var previousResource)
             ? GetResourceStatus(previousResource).State
             : null;
-        var resourceChange = ProcessResourceChange(resourceByName, watchEventType, resource);
+        ResourceChangeResult resourceChange;
+        lock (_incarnationLock)
+        {
+            resourceChange = ProcessResourceChange(resourceByName, watchEventType, resource);
+        }
         if (resourceChange != ResourceChangeResult.Ignored)
         {
             if (resourceChange is ResourceChangeResult.Deleted or ResourceChangeResult.Replaced)
@@ -373,9 +376,23 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
                         _allLogsFlushed.TryRemove(resource.Metadata.Name, out _);
                     }
 
-                    await _executorEvents.PublishAsync(new OnResourceChangedContext(_shutdownToken, resourceType, appModelResource, resource.Metadata.Name, status,
-                        resourceChange == ResourceChangeResult.Replaced ? null : previousState,
-                        s => snapshotFactory(resource, s))).ConfigureAwait(false);
+                    Task publishTask;
+                    lock (_incarnationLock)
+                    {
+                        // Log flushing can yield while a restart supersedes this UID. PublishAsync
+                        // updates the snapshot synchronously before invoking resource-stopped callbacks,
+                        // so keep that publication atomic with marking the old UID.
+                        if (IsSuperseded(resourceKind, resource.Metadata.Name, resource.Metadata.Uid))
+                        {
+                            return;
+                        }
+
+                        publishTask = _executorEvents.PublishAsync(new OnResourceChangedContext(_shutdownToken, resourceType, appModelResource, resource.Metadata.Name, status,
+                            resourceChange == ResourceChangeResult.Replaced ? null : previousState,
+                            s => snapshotFactory(resource, s)));
+                    }
+
+                    await publishTask.ConfigureAwait(false);
 
                     if (logsAvailable)
                     {
@@ -1004,14 +1021,13 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
     {
         var resourceKey = (T.ObjectKind, resource.Metadata.Name);
 
-        if (_supersededResourceUids.TryGetValue(resourceKey, out var supersededUid) &&
-            string.Equals(supersededUid, resource.Metadata.Uid, StringComparison.Ordinal))
+        if (IsSuperseded(resourceKey.ObjectKind, resourceKey.Name, resource.Metadata.Uid))
         {
             // A delete for the old object still cleans up its cached state, unless the
             // replacement has already been observed under the same name.
             if (watchEventType != WatchEventType.Deleted ||
                 (_observedResources.TryGetValue(resourceKey, out var current) &&
-                 !string.Equals(current.Uid, supersededUid, StringComparison.Ordinal)))
+                 !string.Equals(current.Uid, resource.Metadata.Uid, StringComparison.Ordinal)))
             {
                 return ResourceChangeResult.Ignored;
             }
@@ -1081,6 +1097,12 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
             default:
                 return ResourceChangeResult.Ignored;
         }
+    }
+
+    private bool IsSuperseded(string kind, string name, string? uid)
+    {
+        return _supersededResourceUids.TryGetValue((kind, name), out var supersededUid) &&
+            string.Equals(supersededUid, uid, StringComparison.Ordinal);
     }
 
     private static bool HasSameResourceIdentity(string? previousUid, string? resourceUid)

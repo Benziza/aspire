@@ -44,6 +44,50 @@ namespace Aspire.Hosting.Tests.Dcp;
 public class DcpExecutorTests(ITestOutputHelper outputHelper)
 {
     [Fact]
+    public async Task ExecutableCanRestartFromResourceChangedCallback()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        builder.AddExecutable("program", "program", builder.AppHostDirectory);
+        var kubernetesService = new TestKubernetesService();
+        var events = new DcpExecutorEvents();
+        var restartCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var app = builder.Build();
+        await using var executor = CreateAppExecutor(
+            app.Services.GetRequiredService<DistributedApplicationModel>(),
+            kubernetesService: kubernetesService,
+            events: events);
+        await executor.RunApplicationAsync().DefaultTimeout();
+
+        using var restartCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var restartRequested = 0;
+        events.Subscribe<OnResourceChangedContext>(async context =>
+        {
+            if (context.Resource.Name == "program" &&
+                context.Status.State == ExecutableState.Finished &&
+                Interlocked.Exchange(ref restartRequested, 1) == 0)
+            {
+                try
+                {
+                    await executor.StartResourceAsync(executor.GetResource(context.DcpResourceName), restartCts.Token);
+                    restartCompleted.TrySetResult();
+                }
+                catch (Exception ex)
+                {
+                    restartCompleted.TrySetException(ex);
+                }
+            }
+        });
+
+        var previous = Assert.Single(GetCreatedExecutablesForResource(kubernetesService, "program"));
+        previous.Status = new ExecutableStatus { State = ExecutableState.Finished, ExitCode = 0 };
+        kubernetesService.PushResourceModified(previous);
+
+        await restartCompleted.Task.DefaultTimeout(TimeSpan.FromSeconds(25));
+        var replacement = GetCreatedExecutablesForResource(kubernetesService, "program").Last();
+        Assert.NotEqual(previous.Metadata.Uid, replacement.Metadata.Uid);
+    }
+
+    [Fact]
     public async Task RestartedExecutableIgnoresLateStatusFromPreviousIncarnation()
     {
         var builder = DistributedApplication.CreateBuilder();
