@@ -2,11 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Aspire.Cli.Acquisition;
+using Aspire.Cli.Agents.Playwright;
 using Aspire.Cli.Certificates;
 using Aspire.Cli.Configuration;
 using Aspire.Cli.Interaction;
+using Aspire.Cli.Npm;
 using Aspire.Cli.Tests.Acquisition;
 using Aspire.Cli.Tests.TestServices;
 using Aspire.Cli.Tests.Utils;
@@ -15,6 +18,7 @@ using Microsoft.AspNetCore.Certificates.Generation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Tuf;
 
 #if DEBUG
 using System.Globalization;
@@ -102,6 +106,70 @@ public class CliBootstrapTests(ITestOutputHelper outputHelper)
 
         Assert.True(reader.TryReadChannel(out var channel, out _));
         Assert.Equal(channel, context.IdentityChannel);
+    }
+
+    [Fact]
+    public async Task BuildApplication_VerifiesLatestPlaywrightNpmProvenance_UsingConfiguredTufCache()
+    {
+        using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);
+        var aspireHome = workspace.CreateDirectory("aspire-home");
+        using var aspireHomeOverride = new EnvVarOverride(CliPathHelper.AspireHomeEnvironmentVariable, aspireHome.FullName);
+        using var host = await BuildHostAsync();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromMinutes(2));
+        var cancellationToken = timeout.Token;
+        using var httpClient = new HttpClient();
+
+        // Intentionally use the live latest release in regular CI: recorded bundles cannot
+        // detect npm provenance changes that would break secure Playwright installation.
+        var package = await httpClient.GetFromJsonAsync<JsonElement>(
+            $"https://registry.npmjs.org/{Uri.EscapeDataString(PlaywrightCliInstaller.PackageName)}/latest",
+            cancellationToken);
+        Assert.Equal(PlaywrightCliInstaller.PackageName, package.GetProperty("name").GetString());
+        var version = package.GetProperty("version").GetString();
+        Assert.False(string.IsNullOrEmpty(version));
+        outputHelper.WriteLine($"Verifying {PlaywrightCliInstaller.PackageName}@{version}");
+
+        var distribution = package.GetProperty("dist");
+        var tarballUrl = distribution.GetProperty("tarball").GetString();
+        Assert.NotNull(tarballUrl);
+        using var tarball = await httpClient.GetStreamAsync(tarballUrl, cancellationToken);
+        var digest = await SHA512.HashDataAsync(tarball, cancellationToken);
+        var integrity = $"sha512-{Convert.ToBase64String(digest)}";
+        Assert.Equal(distribution.GetProperty("integrity").GetString(), integrity);
+
+        var checker = host.Services.GetRequiredService<INpmProvenanceChecker>();
+        var result = await checker.VerifyProvenanceAsync(
+            PlaywrightCliInstaller.PackageName,
+            version,
+            PlaywrightCliInstaller.ExpectedSourceRepository,
+            PlaywrightCliInstaller.ExpectedWorkflowPath,
+            PlaywrightCliInstaller.ExpectedBuildType,
+            refInfo => string.Equals(refInfo.Kind, "tags", StringComparison.Ordinal) &&
+                       (string.Equals(refInfo.Name, version, StringComparison.Ordinal) ||
+                        string.Equals(refInfo.Name, $"v{version}", StringComparison.Ordinal)),
+            integrity,
+            cancellationToken);
+
+        Assert.True(result.IsVerified, $"Provenance verification failed for {PlaywrightCliInstaller.PackageName}@{version}: {result.Outcome}");
+
+        var context = host.Services.GetRequiredService<CliExecutionContext>();
+        Assert.Equal(Path.Combine(aspireHome.FullName, "cache"), context.CacheDirectory.FullName);
+        var cacheDirectory = Path.Combine(context.CacheDirectory.FullName, "tuf");
+        var cache = new FileSystemTufCache(cacheDirectory);
+        foreach (var role in new[] { "root", "timestamp", "snapshot", "targets" })
+        {
+            Assert.NotEmpty(Assert.IsType<byte[]>(cache.LoadMetadata(role)));
+        }
+        Assert.NotEmpty(Assert.IsType<byte[]>(cache.LoadTarget("trusted_root.json")));
+
+        if (!OperatingSystem.IsWindows())
+        {
+            foreach (var file in Directory.EnumerateFiles(cacheDirectory, "*", SearchOption.AllDirectories))
+            {
+                Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file));
+            }
+        }
     }
 
     [Fact]
