@@ -79,6 +79,12 @@ public partial class FoundryModel
         public static readonly FoundryModel ClaudeOpus5 = new() { Name = "claude-opus-5", Version = "2", Format = "Anthropic" };
 
         /// <summary>
+        /// Claude Opus 5.5 is Anthropic's most capable Opus modeland a better collaborator. It handles long-running coding and knowledge work, and reports back clearly on what it did, what it found, and what it needs next.
+        /// </summary>
+        [AspireValue("FoundryModels")]
+        public static readonly FoundryModel ClaudeOpus55 = new() { Name = "claude-opus-5-5", Version = "2", Format = "Anthropic" };
+
+        /// <summary>
         /// Claude Sonnet 4.5 is Anthropic's most capable model for complex agents and an industry leader for coding and computer use.
         /// </summary>
         [AspireValue("FoundryModels")]
@@ -215,6 +221,12 @@ public partial class FoundryModel
         /// </summary>
         [AspireValue("FoundryModels")]
         public static readonly FoundryModel DeepSeekV4Pro = new() { Name = "DeepSeek-V4-Pro", Version = "2026-04-23", Format = "DeepSeek" };
+
+        /// <summary>
+        /// DeepSeek-V4.1-Flash, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens.
+        /// </summary>
+        [AspireValue("FoundryModels")]
+        public static readonly FoundryModel DeepSeekV41Flash = new() { Name = "DeepSeek-V4.1-Flash", Version = "2026-09-10", Format = "DeepSeek" };
     }
 
     /// <summary>
@@ -265,16 +277,10 @@ public partial class FoundryModel
         public static readonly FoundryModel MetaLlama318BInstruct = new() { Name = "Meta-Llama-3.1-8B-Instruct", Version = "6", Format = "Meta" };
 
         /// <summary>
-        /// Muse-Spark is a Meta text-generation model for conversational experiences, drafting, summarization, and question answering.
+        /// Muse-Glimmer-30B is Meta's dense multimodal language model distilled from Muse Spark for autonomous agentic work, multi-step reasoning, schema-based tool calling, and failure recovery.
         /// </summary>
         [AspireValue("FoundryModels")]
-        public static readonly FoundryModel MuseSpark = new() { Name = "Muse-Spark", Version = "1", Format = "Meta" };
-
-        /// <summary>
-        /// Muse-Spark-1.3 is a Meta text-generation model for conversational experiences, drafting, summarization, and question answering.
-        /// </summary>
-        [AspireValue("FoundryModels")]
-        public static readonly FoundryModel MuseSpark13 = new() { Name = "Muse-Spark-1.3", Version = "1", Format = "Meta" };
+        public static readonly FoundryModel MuseGlimmer30b = new() { Name = "muse-glimmer-30b", Version = "1", Format = "Meta" };
     }
 
     /// <summary>
@@ -2134,6 +2140,18 @@ public partial class FoundryModel
         /// </summary>
         [AspireValue("FoundryModels")]
         public static readonly FoundryModel Gpt6Astra = new() { Name = "gpt-6-astra", Version = "2026-09-03", Format = "OpenAI" };
+
+        /// <summary>
+        /// GPT‑6 Luna is OpenAI’s efficient GPT‑6 reasoning model, designed for high-volume workloads where responsiveness and cost efficiency matter.
+        /// </summary>
+        [AspireValue("FoundryModels")]
+        public static readonly FoundryModel Gpt6Luna = new() { Name = "gpt-6-luna", Version = "2026-09-22", Format = "OpenAI" };
+
+        /// <summary>
+        /// GPT‑6 Sol is OpenAI's production-ready frontier model for enterprise agents, coding, complex knowledge work, and multi-step reasoning.
+        /// </summary>
+        [AspireValue("FoundryModels")]
+        public static readonly FoundryModel Gpt6Sol = new() { Name = "gpt-6-sol", Version = "2026-09-22", Format = "OpenAI" };
 
         /// <summary>
         /// Best suited for rich, asynchronous audio input/output interactions, such as creating spoken summaries from text.
