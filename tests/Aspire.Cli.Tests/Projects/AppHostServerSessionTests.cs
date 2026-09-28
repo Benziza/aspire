@@ -669,7 +669,7 @@ public class AppHostServerSessionTests(ITestOutputHelper outputHelper)
         {
             // Use a cross-platform long-running command so the test exercises the kill path
             // rather than a quickly-exiting probe like `dotnet --version`. Avoid stdin-driven
-            // commands such as `cmd /c pause`: IsolatedProcess gives children an EOF stdin, so
+            // commands such as `cmd /c pause`: ProcessExecution gives children an EOF stdin, so
             // they exit within milliseconds and the "still running" assertions race under load.
             var (fileName, arguments) = OperatingSystem.IsWindows()
                 ? ("ping.exe", new[] { "-n", "61", "127.0.0.1" })

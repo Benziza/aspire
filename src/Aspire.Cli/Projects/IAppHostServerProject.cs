@@ -46,8 +46,8 @@ internal sealed record AppHostServerRunResult(
 /// callers (SDK gen, scaffolding, publish, dump). The run path supplies the graceful infrastructure.
 /// </summary>
 /// <param name="IsolateConsole">
-/// When <see langword="true"/>, on Windows the server is spawned via <see cref="IsolatedProcess"/>
-/// into its own hidden console so a graceful shutdown can
+/// When <see langword="true"/>, on Windows the server is spawned into its own hidden console
+/// (<see cref="System.Diagnostics.ProcessStartInfo.CreateNoWindow"/>) so a graceful shutdown can
 /// <c>AttachConsole</c> + post <c>CTRL_C_EVENT</c> against the server without also signalling the CLI.
 /// On Unix the spawn is effectively the same as today's path.
 /// </param>

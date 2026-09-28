@@ -469,7 +469,7 @@ public class Program
         builder.Services.AddSingleton<IFeatures, Features>();
         builder.Services.AddTelemetryServices();
         builder.Services.AddTransient<IProcessExecutionFactory, ProcessExecutionFactory>();
-        // Windows-only crash-time safety net for interactive children spawned by IsolatedProcess
+        // Windows-only crash-time safety net for interactive children spawned by ProcessExecution
         // is ProcessStartInfo.KillOnParentExit: the runtime assigns them to a kill-on-close job that
         // the OS closes on process exit, terminating children that haven't already exited (e.g.
         // orphaned tsx after the CLI crashes). On non-Windows, process-group reparenting + ordinary

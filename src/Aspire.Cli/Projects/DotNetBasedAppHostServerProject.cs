@@ -601,9 +601,9 @@ internal sealed class DotNetBasedAppHostServerProject : IAppHostServerProject
         var assemblyPath = Path.Combine(BuildPath, ProjectDllName);
         var dotnetExe = _environment.IsWindows() ? "dotnet.exe" : "dotnet";
 
-        // Build the canonical ProcessStartInfo first, then translate to IsolatedProcessStartInfo
-        // only if the isolated path is requested. Sharing the env/arg construction avoids drift
-        // between the two branches — every env var and argument lives in exactly one place.
+        // Only the command line, working directory and environment of this ProcessStartInfo reach the
+        // child; ProcessExecutionFactory derives the launch mode (stdio, console, job) from the
+        // ProcessInvocationOptions below so every child is spawned the same way.
         var startInfo = new ProcessStartInfo(dotnetExe)
         {
             WorkingDirectory = _projectModelPath,
