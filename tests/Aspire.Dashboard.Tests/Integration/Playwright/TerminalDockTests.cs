@@ -86,6 +86,14 @@ public sealed class TerminalDockTests(TerminalDockTests.TerminalDockDashboardSer
             await Assertions.Expect(right).ToBeVisibleAsync();
             await Assertions.Expect(left).ToBeDisabledAsync();
             await Assertions.Expect(right).ToBeDisabledAsync();
+            await page.SetViewportSizeAsync(900, 800);
+            for (var i = 0; i < 5; i++)
+            {
+                await updates.Writer.WriteAsync(Change(TerminalChangeType.Added, $"terminal-{i:00}"));
+            }
+            await Assertions.Expect(tabs).ToHaveCountAsync(5);
+            await Assertions.Expect(left).ToBeDisabledAsync();
+            await Assertions.Expect(right).ToBeDisabledAsync();
             Assert.Empty(fixture.Client.ClosedTerminals);
         });
     }
