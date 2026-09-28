@@ -150,7 +150,12 @@ non-NuGet paths in `run-tests.yml` therefore normalize the result through
 `normalize-mtp-exit-code.sh` or `normalize-mtp-exit-code.ps1`. The Deployment
 E2E workflow runs its complete test command through `run-deployment-test.sh`,
 which uses the same Bash normalizer before deciding whether to set its failure
-output. Other nonzero exit codes remain failures.
+output. Other nonzero exit codes remain failures. This is a temporary workaround
+for [dotnet/sdk#56214](https://github.com/dotnet/sdk/issues/56214) and should be
+removed after Aspire upgrades to a .NET 11 SDK build containing
+[dotnet/sdk#56296](https://github.com/dotnet/sdk/pull/56296), or the equivalent
+[dotnet/sdk#56219](https://github.com/dotnet/sdk/pull/56219) fix. Cleanup is
+tracked by [microsoft/aspire#20565](https://github.com/microsoft/aspire/issues/20565).
 
 ## Backward compatibility
 
