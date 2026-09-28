@@ -578,12 +578,10 @@ public class Program
 
         // Npm and Playwright CLI operations.
         builder.Services.AddSingleton<INpmRunner, NpmRunner>();
-        var userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        builder.Services.AddSingleton<ITrustRootProvider>(_ =>
+        builder.Services.AddSingleton<ITrustRootProvider>(serviceProvider =>
         {
-            ITufCache cache = string.IsNullOrEmpty(userProfileDirectory)
-                ? new InMemoryTufCache()
-                : new FileSystemTufCache(Path.Combine(userProfileDirectory, ".aspire", "cache", "tuf"));
+            var executionContext = serviceProvider.GetRequiredService<CliExecutionContext>();
+            var cache = new FileSystemTufCache(Path.Combine(executionContext.CacheDirectory.FullName, "tuf"));
 
             return new TufTrustRootProvider(
                 TufTrustRootProvider.ProductionUrl,
