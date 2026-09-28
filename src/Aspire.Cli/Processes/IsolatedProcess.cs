@@ -395,8 +395,11 @@ internal sealed partial class IsolatedProcess : IAsyncDisposable
             // signalling the CLI (covered by IsolatedProcessTests). Children that only need
             // parent-exit protection or detachment keep sharing the CLI's console.
             psi.CreateNoWindow = startInfo.IsolateConsole;
-            // KillOnParentExit assigns the child to a kill-on-close job atomically at creation. Unix
-            // children rely on the cooperative parent-liveness watchdog instead (see LayoutProcessRunner).
+            // KillOnParentExit assigns the child to a kill-on-close job atomically at creation. The
+            // runtime's job also sets JOB_OBJECT_LIMIT_BREAKAWAY_OK, so DCP can outlive the CLI to
+            // finish cleanup by spawning itself with CREATE_BREAKAWAY_FROM_JOB, provided no nested
+            // job forbids breakaway (dotnet run's does, so DotNetAppHostProject opts out for it).
+            // Unix children rely on the cooperative parent-liveness watchdog instead (see LayoutProcessRunner).
             psi.KillOnParentExit = startInfo.KillOnParentExit;
             // Long-lived children must not keep unrelated inheritable CLI handles (sockets, other
             // children's pipes) open, so inherit only the standard handles.
