@@ -751,22 +751,26 @@ internal sealed partial class UnixCertificateManager : CertificateManager
         // Not Process.Run/RunAsync: they only kill the root process when canceled. Trust checks are canceled
         // on Ctrl+C, and certutil may be a wrapper script, so kill the whole tree to avoid leaking descendants.
         using var process = Process.Start(startInfo)!;
-        using (cancellationToken.UnsafeRegister(static state =>
+        try
+        {
+            process.WaitForExitAsync(cancellationToken).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             try
             {
-                ((Process)state!).Kill(entireProcessTree: true);
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit();
             }
             catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or System.ComponentModel.Win32Exception)
             {
-                // The process either exited concurrently or could not be killed by this platform.
+                // The process either exited concurrently or could not be killed by this platform. Don't
+                // wait for it in the latter case: that would hang Ctrl+C on a process we can't stop.
             }
-        }, process))
-        {
-            process.WaitForExit();
+
+            throw;
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
         return process.ExitCode == 0;
     }
 
