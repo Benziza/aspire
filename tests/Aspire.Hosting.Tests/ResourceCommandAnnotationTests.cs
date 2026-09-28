@@ -3,6 +3,7 @@
 
 #pragma warning disable ASPIREPROJECTS001 // ProjectLaunchDefaultsAnnotation is experimental.
 
+using Aspire.Dashboard.Model;
 using Aspire.Hosting.Resources;
 using Aspire.Hosting.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -210,5 +211,25 @@ public class ResourceCommandAnnotationTests
         {
             Assert.Equal(app.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping, cancellationToken);
         }
+    }
+
+    [Theory]
+    [InlineData("Exited", null, false)]
+    [InlineData("Exited", 0, true)]
+    [InlineData("Finished", 1, true)]
+    [InlineData("FailedToStart", null, true)]
+    [InlineData("Running", null, false)]
+    public void IsRebuildComplete_RequiresExitCodeForTerminalState(string state, int? exitCode, bool expected)
+    {
+        var resource = new ProjectResource("project");
+        var resourceEvent = new ResourceEvent(resource, "project-rebuilder", new CustomResourceSnapshot
+        {
+            ResourceType = KnownResourceTypes.Executable,
+            State = new ResourceStateSnapshot(state, null),
+            ExitCode = exitCode,
+            Properties = []
+        });
+
+        Assert.Equal(expected, CommandsConfigurationExtensions.IsRebuildComplete(resourceEvent, "project-rebuilder"));
     }
 }

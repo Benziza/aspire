@@ -46,6 +46,10 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
     // a recreated object from an unchanged watch replay. See ProcessResourceChange.
     private readonly ConcurrentDictionary<(string Kind, string Name), ObservedResource> _observedResources = new();
     // Service and endpoint watches can read this map while a resource restart marks another kind.
+    // Only the immediately previous UID is retained. An event delayed across multiple serialized
+    // restarts could therefore be accepted, but retaining every historical UID would grow this map
+    // for the lifetime of the AppHost. DCP watches normally deliver deletion events promptly enough
+    // that this bounded tradeoff is preferable.
     private readonly ConcurrentDictionary<(string Kind, string Name), string> _supersededResourceUids = new();
     private readonly object _incarnationLock = new();
     private readonly SemaphoreSlim _outputSemaphore = new(1);
@@ -85,19 +89,20 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
     // Internal for testing.
     internal Func<string?, ValueTask>? BeforeLogBatchDeliveryAsync { get; set; }
 
-    internal void MarkPreviousIncarnationSuperseded(string kind, string name)
+    internal void MarkPreviousIncarnationSuperseded(string kind, string name, string? uid)
     {
+        if (string.IsNullOrEmpty(uid))
+        {
+            return;
+        }
+
         // Resource-stopped callbacks run under the watcher's output semaphore and may restart
         // their resource. Only synchronize UID state here, not the callbacks that publish it.
         lock (_incarnationLock)
         {
-            var key = (kind, name);
-            if (_observedResources.TryGetValue(key, out var previous) && !string.IsNullOrEmpty(previous.Uid))
-            {
-                // Deleting a DCP object does not drain its watch. A final status update from the
-                // old UID may arrive after the replacement's Starting state was published.
-                _supersededResourceUids[key] = previous.Uid;
-            }
+            // Deleting a DCP object does not drain its watch. A final status update from the
+            // old UID may arrive after the replacement's Starting state was published.
+            _supersededResourceUids[(kind, name)] = uid;
         }
     }
 

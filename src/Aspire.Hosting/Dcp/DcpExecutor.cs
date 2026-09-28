@@ -1268,7 +1268,6 @@ internal sealed class DcpExecutor : IDcpExecutor, IDcpObjectFactory, IAsyncDispo
 
                 case RenderedModelResource<Container> cr:
                     await EnsureResourceDeletedAsync<Container>(resourceReference, cancellationToken).ConfigureAwait(false);
-                    _resourceWatcher.MarkPreviousIncarnationSuperseded(Model.Dcp.ContainerKind, resourceReference.DcpResourceName);
 
                     // Ensure we explicitly start the container even if original container was created in "delay-start" mode.
                     cr.DcpResource.Spec.Start = true;
@@ -1281,7 +1280,6 @@ internal sealed class DcpExecutor : IDcpExecutor, IDcpObjectFactory, IAsyncDispo
                     break;
                 case RenderedModelResource<Executable> er:
                     await EnsureResourceDeletedAsync<Executable>(resourceReference, cancellationToken).ConfigureAwait(false);
-                    _resourceWatcher.MarkPreviousIncarnationSuperseded(Model.Dcp.ExecutableKind, resourceReference.DcpResourceName);
 
                     // Ensure we explicitly start the executable even if original executable was created in "delay-start" mode.
                     er.DcpResource.Spec.Start = true;
@@ -1331,6 +1329,7 @@ internal sealed class DcpExecutor : IDcpExecutor, IDcpObjectFactory, IAsyncDispo
             {
                 var r = await _kubernetesService.DeleteAsync<T>(resourceName, cancellationToken: attemptCancellationToken).ConfigureAwait(false);
                 uid = r.Uid();
+                _resourceWatcher.MarkPreviousIncarnationSuperseded(T.ObjectKind, resourceName, uid);
 
                 _logger.LogDebug("Delete request for '{ResourceName}' successfully completed. Resource to delete has UID '{Uid}'.", resourceName, uid);
             }

@@ -94,6 +94,7 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         builder.AddExecutable("program", "program", builder.AppHostDirectory);
         var recreationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRecreation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var deletionObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var oldStatusObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var creationCount = 0;
         var kubernetesService = new TestKubernetesService(
@@ -108,6 +109,11 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
             },
             afterWatchEventAsync: (context, _) =>
             {
+                if (context is { EventType: k8s.WatchEventType.Deleted, Resource: Executable { AppModelResourceName: "program" } })
+                {
+                    deletionObserved.TrySetResult();
+                }
+
                 if (context.Resource is Executable { Status.ExitCode: 7 })
                 {
                     oldStatusObserved.TrySetResult();
@@ -144,6 +150,11 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         await AsyncTestHelpers.AssertIsTrueRetryAsync(
             () => states.Any(s => s.State == ExecutableState.Finished && s.ExitCode == 0),
             "The first executable must finish before it can be restarted.");
+
+        // Simulate the watch observing deletion before DeleteAsync returns the old object. The
+        // executor must use the UID from the delete response rather than the watcher's cleared cache.
+        kubernetesService.PushResourceDeleted(previous);
+        await deletionObserved.Task.DefaultTimeout();
 
         var reference = executor.GetResource(previous.Metadata.Name);
         var restartTask = executor.StartResourceAsync(reference, TestContext.Current.CancellationToken);

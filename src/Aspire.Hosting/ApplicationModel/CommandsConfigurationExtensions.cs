@@ -271,9 +271,20 @@ internal static class CommandsConfigurationExtensions
                 // new build's terminal state if it exited before this subscription.
                 // The DCP watcher ignores late events from the deleted executable's UID.
                 var terminalEvent = await resourceNotificationService.WaitForResourceAsync(rebuilderResource.Name,
-                    evt => evt.ResourceId == rebuilderInstanceName &&
-                           KnownResourceStates.TerminalStates.Contains(evt.Snapshot.State?.Text),
+                    evt => IsRebuildComplete(evt, rebuilderInstanceName),
                     buildTimeoutCts.Token).ConfigureAwait(false);
+
+                if (terminalEvent.Snapshot.State?.Text == KnownResourceStates.FailedToStart)
+                {
+                    const string failureMessage = "Build failed to start.";
+                    LogBuildError(mainLogger, buildOutput, failureMessage);
+                    await resourceNotificationService.PublishUpdateAsync(projectResource, s => s with
+                    {
+                        State = new ResourceStateSnapshot(KnownResourceStates.FailedToStart, KnownResourceStateStyles.Error)
+                    }).ConfigureAwait(false);
+                    return await FinishAsync(new ExecuteCommandResult { Success = false, Message = failureMessage }).ConfigureAwait(false);
+                }
+
                 exitCode = terminalEvent.Snapshot.ExitCode;
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -372,6 +383,14 @@ internal static class CommandsConfigurationExtensions
                 await StopLogForwardingAsync(logCts, logForwardTask).ConfigureAwait(false);
             }
         }
+    }
+
+    internal static bool IsRebuildComplete(ResourceEvent resourceEvent, string rebuilderInstanceName)
+    {
+        var state = resourceEvent.Snapshot.State?.Text;
+        return resourceEvent.ResourceId == rebuilderInstanceName &&
+            (state == KnownResourceStates.FailedToStart ||
+             (KnownResourceStates.TerminalStates.Contains(state) && resourceEvent.Snapshot.ExitCode is not null));
     }
 
     internal static CancellationToken GetCommandCancellationToken(ExecuteCommandContext context, IResource resource)
