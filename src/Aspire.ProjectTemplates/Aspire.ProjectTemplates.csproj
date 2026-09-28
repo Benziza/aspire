@@ -139,6 +139,29 @@
           StandardErrorImportance="Normal" />
   </Target>
 
+  <!-- Refresh dependency inputs before planning independent, restore-only template graphs. -->
+  <Target Name="RefreshTemplatePackageInputsForCgManifest">
+    <Copy SourceFiles="@(TemplateProjectFiles);@(TemplateConfigFiles)"
+          DestinationFiles="@(TemplateProjectFilesObj);@(TemplateConfigFilesObj)" />
+  </Target>
+
+  <Target Name="_PrepareTemplateCgManifest"
+          DependsOnTargets="RefreshTemplatePackageInputsForCgManifest;ReplacePackageVersionOnTemplates">
+    <PropertyGroup>
+      <TemplateCgManifestPath Condition="'$(TemplateCgManifestPath)' == ''">$(RepoRoot)cgmanifest.json</TemplateCgManifestPath>
+      <TemplateCgPackageDirectory Condition="'$(TemplateCgPackageDirectory)' == ''">$(ArtifactsShippingPackagesDir).</TemplateCgPackageDirectory>
+      <_TemplateCgManifestCommand>dotnet run --project &quot;$(RepoRoot)tools/GenerateTemplateManifest/GenerateTemplateManifest.csproj&quot; --no-launch-profile -- &quot;$(MSBuildThisFileDirectory)templates&quot; &quot;$(IntermediateOutputPath)content/templates&quot; &quot;$(TemplateCgManifestPath)&quot; &quot;$(RepoRoot)NuGet.config&quot; &quot;$(TemplateCgPackageDirectory)&quot; &quot;$(IntermediateOutputPath)template-cg-restore&quot;</_TemplateCgManifestCommand>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="GenerateTemplateCgManifest" DependsOnTargets="_PrepareTemplateCgManifest">
+    <Exec Command="$(_TemplateCgManifestCommand)" />
+  </Target>
+
+  <Target Name="VerifyTemplateCgManifest" DependsOnTargets="_PrepareTemplateCgManifest">
+    <Exec Command="$(_TemplateCgManifestCommand) --verify" />
+  </Target>
+
   <!-- Grabs the contents of the templates folder and copies them to IntermediateOutputPath directory -->
   <Target Name="CopyTemplatesToIntermediateOutputPath"
           Inputs="@(TemplateFiles);@(TemplateProjectFiles)"

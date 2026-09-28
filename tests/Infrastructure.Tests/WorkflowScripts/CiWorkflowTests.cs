@@ -7,6 +7,20 @@ namespace Infrastructure.Tests;
 
 public sealed class CiWorkflowTests
 {
+    [Fact]
+    public void TemplateManifestVerificationUsesSameBuildPackagesBeforeCleanup()
+    {
+        var job = GetJob(ReadWorkflow("build-packages.yml"), "build_packages");
+        var verify = GetStep(job, "Verify template component manifest");
+
+        Assert.True(job.IndexOf("name: Build with packages", StringComparison.Ordinal) <
+            job.IndexOf("name: Verify template component manifest", StringComparison.Ordinal));
+        Assert.True(job.IndexOf("name: Verify template component manifest", StringComparison.Ordinal) <
+            job.IndexOf("name: Clean up artifacts", StringComparison.Ordinal));
+        Assert.Contains("eng/scripts/update-template-cgmanifest.ps1 -ChangesOnly", verify);
+        Assert.Contains("github.event.before", verify);
+    }
+
     [Theory]
     [InlineData("prepare_winget_installer_artifacts")]
     [InlineData("prepare_homebrew_installer_artifacts")]
@@ -37,7 +51,7 @@ public sealed class CiWorkflowTests
     [Fact]
     public void RunTestsInstallsJavaForProjectsThatRequireIt()
     {
-        var workflow = File.ReadAllText(Path.Combine(RepoRoot.Path, ".github", "workflows", "run-tests.yml"));
+        var workflow = ReadWorkflow("run-tests.yml");
         var javaSetup = System.Text.RegularExpressions.Regex.Match(
             workflow,
             "(?ms)^      - name: Set up Java\\r?\\n(?<body>.*?)(?=^      - |\\z)");
@@ -74,7 +88,7 @@ public sealed class CiWorkflowTests
     }
 
     private static string ReadWorkflow(string fileName)
-        => File.ReadAllText(Path.Combine(RepoRoot.Path, ".github", "workflows", fileName));
+        => File.ReadAllText(Path.Combine(RepoRoot.Path, ".github", "workflows", fileName)).ReplaceLineEndings("\n");
 
     private static string GetJob(string workflow, string jobName)
     {
