@@ -243,9 +243,6 @@ internal static class CommandsConfigurationExtensions
         var rebuilderInstanceName = rebuilderResource.GetResolvedResourceNames()[0];
         var logForwardTask = ForwardLogsAsync(loggerService, rebuilderInstanceName, mainLogger, buildOutput, logCts.Token);
         var logForwardingStopped = false;
-        var previousRebuilderVersion = resourceNotificationService.TryGetCurrentState(rebuilderInstanceName, out var previousRebuilderEvent)
-            ? previousRebuilderEvent.Snapshot.Version
-            : -1;
 
         async Task<ExecuteCommandResult> FinishAsync(ExecuteCommandResult result)
         {
@@ -269,12 +266,12 @@ internal static class CommandsConfigurationExtensions
                 LogBuildInformation(mainLogger, buildOutput, "Building project...");
                 await orchestrator.StartResourceAsync(rebuilderInstanceName, cancellationToken).ConfigureAwait(false);
 
-                // WatchAsync replays the current snapshot, so a build that exits before this
-                // subscription is still observed. The DCP watcher ignores late events from
-                // the deleted executable's UID after a restart.
+                // StartResourceAsync publishes Starting before returning, replacing the previous
+                // build's terminal snapshot. WatchAsync then replays either that state or the
+                // new build's terminal state if it exited before this subscription.
+                // The DCP watcher ignores late events from the deleted executable's UID.
                 var terminalEvent = await resourceNotificationService.WaitForResourceAsync(rebuilderResource.Name,
                     evt => evt.ResourceId == rebuilderInstanceName &&
-                           evt.Snapshot.Version > previousRebuilderVersion &&
                            KnownResourceStates.TerminalStates.Contains(evt.Snapshot.State?.Text),
                     buildTimeoutCts.Token).ConfigureAwait(false);
                 exitCode = terminalEvent.Snapshot.ExitCode;
