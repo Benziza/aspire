@@ -8,6 +8,7 @@ using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Tests.Utils;
 using Aspire.Hosting.Utils;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 
 #pragma warning disable ASPIRECERTIFICATES001
 #pragma warning disable ASPIREMONGODB001
@@ -485,6 +486,58 @@ public class AddMongoDBTests(ITestOutputHelper testOutputHelper)
         var config = await EnvironmentVariableEvaluator.GetEnvironmentVariablesAsync(mongoExpress.Resource);
         Assert.DoesNotContain("ME_CONFIG_MONGODB_SSL", config.Keys);
         Assert.DoesNotContain("ME_CONFIG_MONGODB_SSLVALIDATE", config.Keys);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MongoExpressUsesADirectConnectionForASingleMemberReplicaSet(bool useTls)
+    {
+        using var builder = TestDistributedApplicationBuilder.Create(testOutputHelper);
+        using var certificate = CreateTestCertificate();
+
+        var password = builder.AddParameter("password", "p@ss/word", secret: true);
+        var mongoExpress = null as IResourceBuilder<MongoExpressContainerResource>;
+        var mongo = builder.AddMongoDB("mongo", password: password);
+        if (useTls)
+        {
+            mongo.WithHttpsCertificate(certificate);
+        }
+        else
+        {
+            mongo.WithoutHttpsCertificate();
+        }
+
+        mongo.WithReplicaSet().WithMongoExpress(configureContainer: c => mongoExpress = c);
+
+        Assert.NotNull(mongoExpress);
+
+        using var app = builder.Build();
+        var appModel = app.Services.GetRequiredService<DistributedApplicationModel>();
+        await builder.Eventing.PublishAsync(new BeforeStartEvent(app.Services, appModel));
+
+        var config = await EnvironmentVariableEvaluator.GetEnvironmentVariablesAsync(mongoExpress.Resource);
+
+        var expected = new Dictionary<string, string>
+        {
+            ["ME_CONFIG_MONGODB_URL"] = "mongodb://admin:p%40ss%2Fword@mongo:27017/?authSource=admin&directConnection=true",
+            ["ME_CONFIG_BASICAUTH"] = "false",
+        };
+        if (useTls)
+        {
+            expected["ME_CONFIG_MONGODB_SSL"] = "true";
+            expected["ME_CONFIG_MONGODB_SSLVALIDATE"] = "false";
+        }
+
+        Assert.Equal(expected, config);
+
+        var url = new MongoUrl(config["ME_CONFIG_MONGODB_URL"]);
+        Assert.True(url.DirectConnection);
+        Assert.Equal("mongo:27017", url.Server.ToString());
+        Assert.Equal("admin", url.Username);
+        Assert.Equal("p@ss/word", url.Password);
+        Assert.Equal("admin", url.AuthenticationSource);
+        Assert.Equal(ReadPreference.Primary, MongoClientSettings.FromUrl(url).ReadPreference);
     }
 
     [Fact]
