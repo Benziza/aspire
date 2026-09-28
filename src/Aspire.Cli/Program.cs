@@ -581,7 +581,11 @@ public class Program
         builder.Services.AddSingleton<ITrustRootProvider>(serviceProvider =>
         {
             var executionContext = serviceProvider.GetRequiredService<CliExecutionContext>();
-            var cache = new FileSystemTufCache(Path.Combine(executionContext.CacheDirectory.FullName, "tuf"));
+            // Building the command tree resolves this provider even during completion.
+            // TUF initialization seeds the cache, so completion must use memory to avoid disk writes.
+            ITufCache cache = isCompletion
+                ? new InMemoryTufCache()
+                : new FileSystemTufCache(Path.Combine(executionContext.CacheDirectory.FullName, "tuf"));
 
             return new TufTrustRootProvider(
                 TufTrustRootProvider.ProductionUrl,
