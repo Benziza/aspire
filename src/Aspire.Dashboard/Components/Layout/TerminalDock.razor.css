@@ -57,17 +57,28 @@
     display: none;
 }
 
-.terminal-dock-tab-scroll:not([hidden]) {
+.terminal-dock-tab-scroll {
     display: flex;
     flex: 0 0 auto;
 }
 
-.terminal-dock-tab[data-drop-position="before"] {
-    box-shadow: inset 2px 0 var(--colorBrandStroke1);
+.terminal-dock-tab[data-drop-position]::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    width: 2px;
+    background-color: var(--colorBrandStroke1);
+    pointer-events: none;
 }
 
-.terminal-dock-tab[data-drop-position="after"] {
-    box-shadow: inset -2px 0 var(--colorBrandStroke1);
+/* Center the insertion line in the shared tab list's 4px gap, outside the tab border. */
+.terminal-dock-tab[data-drop-position="before"]::after {
+    left: -4px;
+}
+
+.terminal-dock-tab[data-drop-position="after"]::after {
+    right: -4px;
 }
 
 .terminal-dock-tab.dragging {
@@ -75,13 +86,14 @@
 }
 
 @media (forced-colors: active) {
-    .terminal-dock-tab[data-drop-position] {
-        outline: 2px solid Highlight;
-        outline-offset: -2px;
+    .terminal-dock-tab[data-drop-position]::after {
+        background-color: Highlight;
+        forced-color-adjust: none;
     }
 }
 
 .terminal-dock-tab {
+    position: relative;
     display: flex;
     align-items: center;
     max-width: 220px;

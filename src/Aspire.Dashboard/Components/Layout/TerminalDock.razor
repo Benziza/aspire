@@ -65,24 +65,6 @@
                             </div>
                         }
                     </div>
-                    <div class="terminal-dock-tab-scroll" hidden>
-                        <FluentButton Appearance="ButtonAppearance.Transparent"
-                                      IconOnly="true"
-                                      Class="aspire-icon-button"
-                                      data-tab-scroll="-1"
-                                      Title="@Loc[nameof(Resources.TerminalStrings.TerminalDockScrollLeft)]"
-                                      aria-label="@Loc[nameof(Resources.TerminalStrings.TerminalDockScrollLeft)]">
-                            <FluentIcon Value="@(new Icons.Regular.Size16.ChevronLeft())" Color="Color.Default" />
-                        </FluentButton>
-                        <FluentButton Appearance="ButtonAppearance.Transparent"
-                                      IconOnly="true"
-                                      Class="aspire-icon-button"
-                                      data-tab-scroll="1"
-                                      Title="@Loc[nameof(Resources.TerminalStrings.TerminalDockScrollRight)]"
-                                      aria-label="@Loc[nameof(Resources.TerminalStrings.TerminalDockScrollRight)]">
-                            <FluentIcon Value="@(new Icons.Regular.Size16.ChevronRight())" Color="Color.Default" />
-                        </FluentButton>
-                    </div>
                 </div>
                 <span id="@($"{_elementIdPrefix}-reorder-help")" hidden>@Loc[nameof(Resources.TerminalStrings.TerminalDockReorderHelp)]</span>
             }
@@ -97,6 +79,28 @@
             {
                 <span class="terminal-dock-popup-blocked">@Loc[nameof(Resources.TerminalStrings.TerminalDockDetachBlocked)]</span>
             }
+            <div class="terminal-dock-tab-scroll">
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              IconOnly="true"
+                              Class="aspire-icon-button"
+                              Disabled="true"
+                              aria-disabled="true"
+                              data-tab-scroll="-1"
+                              Title="@Loc[nameof(Resources.TerminalStrings.TerminalDockScrollLeft)]"
+                              aria-label="@Loc[nameof(Resources.TerminalStrings.TerminalDockScrollLeft)]">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.ChevronLeft())" Color="Color.Default" />
+                </FluentButton>
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              IconOnly="true"
+                              Class="aspire-icon-button"
+                              Disabled="true"
+                              aria-disabled="true"
+                              data-tab-scroll="1"
+                              Title="@Loc[nameof(Resources.TerminalStrings.TerminalDockScrollRight)]"
+                              aria-label="@Loc[nameof(Resources.TerminalStrings.TerminalDockScrollRight)]">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.ChevronRight())" Color="Color.Default" />
+                </FluentButton>
+            </div>
             <TerminalWindowButton @ref="_windowButton"
                                   Class="terminal-dock-detach"
                                   Label="@Loc[nameof(Resources.TerminalStrings.TerminalDockDetach)]"

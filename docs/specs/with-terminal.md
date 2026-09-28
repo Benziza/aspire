@@ -454,8 +454,10 @@ Dock tabs share the Resources/Parameters tab styling. Drag a tab to reorder it,
 or focus its title and press Alt+Shift+Left/Right. Reordering keeps the active
 terminal and mounted viewers unchanged. The order is local to the dashboard
 session and survives recovery snapshots; newly discovered terminals append.
-Tabs stay on one row, with horizontal scrolling and left/right buttons when
-they overflow. Activating a tab brings its title and close button into view,
+Tabs stay on one row, with horizontal scrolling. Left/right buttons remain
+visible beside **Open in window**, disabled when there are no more tabs in
+that direction. A thin line between tabs indicates the drop position.
+Activating a tab brings its title and close button into view,
 and dragging near either edge scrolls the strip to reach off-screen tabs.
 
 The dock resize handle

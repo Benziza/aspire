@@ -300,12 +300,9 @@ function registerTabStrip(dock, dotNetRef) {
     const isRtl = () => getComputedStyle(list).direction === 'rtl';
 
     const updateOverflow = () => {
-        if (!list) return;
         const controls = dock.querySelector('.terminal-dock-tab-scroll');
-        const wrapper = dock.querySelector('.terminal-dock-tabs');
         const tabs = groups();
-        controls.hidden = list.scrollWidth <= wrapper.clientWidth + 1;
-        const viewport = list.getBoundingClientRect();
+        const viewport = list?.getBoundingClientRect();
         const boxes = tabs.map(tab => tab.getBoundingClientRect());
         for (const button of controls.querySelectorAll('[data-tab-scroll]')) {
             const canScroll = button.dataset.tabScroll === '-1'

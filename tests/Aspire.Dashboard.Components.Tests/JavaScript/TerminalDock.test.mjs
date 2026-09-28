@@ -107,7 +107,7 @@ function createTabRegistration() {
         hasAttribute() { return this.disabled; },
     });
     const buttonByDirection = { "-1": makeButton("-1"), "1": makeButton("1") };
-    const controls = { hidden: true, querySelectorAll: () => Object.values(buttonByDirection) };
+    const controls = { hidden: false, querySelectorAll: () => Object.values(buttonByDirection) };
     const wrapper = { clientWidth: 200 };
     const tabs = ["one", "two", "three"].map((id, index) => {
         const group = {
@@ -160,8 +160,8 @@ function createTabRegistration() {
     return { calls, scrolls, controls, wrapper, list, tabs, emit, observers, buttonByDirection };
 }
 
-test("overflow arrows scroll horizontally and disappear when tabs fit", () => {
-    const { controls, buttonByDirection, emit, scrolls, wrapper, observers } = createTabRegistration();
+test("overflow arrows remain visible and disable when tabs fit or the list is removed", () => {
+    const { controls, buttonByDirection, emit, scrolls, list, observers } = createTabRegistration();
     assert.equal(controls.hidden, false);
     assert.equal(buttonByDirection["-1"].disabled, true);
     assert.equal(buttonByDirection["-1"]["aria-disabled"], "true");
@@ -169,9 +169,17 @@ test("overflow arrows scroll horizontally and disappear when tabs fit", () => {
     assert.equal(buttonByDirection["1"]["aria-disabled"], "false");
     emit("click", buttonByDirection["1"]);
     assert.deepEqual(scrolls, [{ left: 108, behavior: "instant" }]);
-    wrapper.clientWidth = 500;
+    list.getBoundingClientRect = () => ({ left: 0, right: 500 });
     observers[0].callback();
-    assert.equal(controls.hidden, true);
+    assert.equal(controls.hidden, false);
+    assert.equal(buttonByDirection["-1"].disabled, true);
+    assert.equal(buttonByDirection["1"].disabled, true);
+    const querySelector = dockElement.querySelector;
+    dockElement.querySelector = selector => selector === ".terminal-dock-tablist" ? null : querySelector(selector);
+    observers[1].callback();
+    assert.equal(controls.hidden, false);
+    assert.equal(buttonByDirection["-1"].disabled, true);
+    assert.equal(buttonByDirection["1"].disabled, true);
 });
 
 test("local drag commits relative order, ignores foreign drops and cleans up edge scrolling", async () => {

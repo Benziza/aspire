@@ -71,7 +71,21 @@ public sealed class TerminalDockTests(TerminalDockTests.TerminalDockDashboardSer
             }
             await page.SetViewportSizeAsync(1280, 900);
             await Assertions.Expect(tabs).ToHaveCountAsync(3);
-            await Assertions.Expect(page.Locator(".terminal-dock-tab-scroll")).ToBeHiddenAsync();
+            await Assertions.Expect(left).ToBeVisibleAsync();
+            await Assertions.Expect(right).ToBeVisibleAsync();
+            await Assertions.Expect(left).ToBeDisabledAsync();
+            await Assertions.Expect(right).ToBeDisabledAsync();
+            Assert.True(await page.Locator(".terminal-dock-tab-scroll").EvaluateAsync<bool>(
+                "element => element.nextElementSibling.classList.contains('terminal-dock-detach')"));
+            foreach (var id in new[] { "first", "second", "third" })
+            {
+                await updates.Writer.WriteAsync(Change(TerminalChangeType.Removed, id));
+            }
+            await Assertions.Expect(tabs).ToHaveCountAsync(0);
+            await Assertions.Expect(left).ToBeVisibleAsync();
+            await Assertions.Expect(right).ToBeVisibleAsync();
+            await Assertions.Expect(left).ToBeDisabledAsync();
+            await Assertions.Expect(right).ToBeDisabledAsync();
             Assert.Empty(fixture.Client.ClosedTerminals);
         });
     }
