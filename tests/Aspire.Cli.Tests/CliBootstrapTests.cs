@@ -109,6 +109,7 @@ public class CliBootstrapTests(ITestOutputHelper outputHelper)
     }
 
     [Fact]
+    [OuterloopTest("Requires network access to the public npm registry and Sigstore TUF service")]
     public async Task BuildApplication_VerifiesLatestPlaywrightNpmProvenance_UsingConfiguredTufCache()
     {
         using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);
