@@ -322,6 +322,33 @@ namespace Aspire.Dashboard.Resources {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Scroll terminal tabs left.
+        /// </summary>
+        public static string TerminalDockScrollLeft {
+            get {
+                return ResourceManager.GetString("TerminalDockScrollLeft", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Scroll terminal tabs right.
+        /// </summary>
+        public static string TerminalDockScrollRight {
+            get {
+                return ResourceManager.GetString("TerminalDockScrollRight", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Drag to reorder tabs, or use Alt+Shift+Left or Alt+Shift+Right while a tab is focused..
+        /// </summary>
+        public static string TerminalDockReorderHelp {
+            get {
+                return ResourceManager.GetString("TerminalDockReorderHelp", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to App host code can open terminals here. Resource terminals are shown separately on their resource pages..
         /// </summary>
         public static string TerminalDockPanelBody {

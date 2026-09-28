@@ -203,6 +203,15 @@
     <value>Close terminal '{0}'</value>
     <comment>{0} is the terminal's display title.</comment>
   </data>
+  <data name="TerminalDockScrollLeft" xml:space="preserve">
+    <value>Scroll terminal tabs left</value>
+  </data>
+  <data name="TerminalDockScrollRight" xml:space="preserve">
+    <value>Scroll terminal tabs right</value>
+  </data>
+  <data name="TerminalDockReorderHelp" xml:space="preserve">
+    <value>Drag to reorder tabs, or use Alt+Shift+Left or Alt+Shift+Right while a tab is focused.</value>
+  </data>
   <data name="TerminalDockCloseTimedOutTitle" xml:space="preserve">
     <value>Terminal close timed out</value>
   </data>

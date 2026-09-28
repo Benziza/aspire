@@ -25,6 +25,41 @@ namespace Aspire.Dashboard.Components.Tests.Layout;
 public partial class TerminalDockTests : DashboardTestContext
 {
     [Fact]
+    public async Task Reorder_PreservesSelectionViewersAndOrderAcrossSnapshots()
+    {
+        var updates = Channel.CreateUnbounded<WatchTerminalsUpdate>();
+        TerminalSetupHelpers.SetupTerminalComponents(this,
+            TerminalSetupHelpers.CreateTerminalDashboardClient(terminalChannelProvider: () => updates));
+        var cut = Render<TerminalDock>();
+        await cut.InvokeAsync(cut.Instance.ToggleAsync);
+        await updates.Writer.WriteAsync(TerminalSetupHelpers.Snapshot("first", "second", "third"));
+        cut.WaitForAssertion(() => Assert.Equal(3, cut.FindComponents<TerminalView>().Count));
+        var views = cut.FindComponents<TerminalView>().Select(view => view.Instance).ToArray();
+        await cut.FindAll("[role=tab]")[1].ClickAsync(new());
+
+        await cut.Instance.ReorderTerminalAsync("first", "third", after: true);
+        Assert.Equal(["second", "third", "first"], cut.FindAll("[role=tab]").Select(tab => tab.TextContent.Trim()));
+        Assert.Equal("second", cut.Find("[aria-selected=true]").TextContent.Trim());
+        Assert.Equal([views[1], views[2], views[0]], cut.FindComponents<TerminalView>().Select(view => view.Instance));
+
+        await cut.Instance.ReorderTerminalAsync("first", "second", after: false);
+        Assert.Equal(["first", "second", "third"], cut.FindAll("[role=tab]").Select(tab => tab.TextContent.Trim()));
+        await cut.Instance.ReorderTerminalAsync("third", "first", after: false);
+        await updates.Writer.WriteAsync(TerminalSetupHelpers.Snapshot("first", "second", "third", "fourth"));
+        cut.WaitForAssertion(() => Assert.Equal(["third", "first", "second", "fourth"],
+            cut.FindAll("[role=tab]").Select(tab => tab.TextContent.Trim())));
+        Assert.Equal("second", cut.Find("[aria-selected=true]").TextContent.Trim());
+        Assert.Equal(4, JSInterop.Invocations.Count(i => i.Identifier == "initTerminal"));
+
+        await updates.Writer.WriteAsync(TerminalSetupHelpers.Change(TerminalChangeType.Removed, "second"));
+        cut.WaitForAssertion(() => Assert.Equal("fourth", cut.Find("[aria-selected=true]").TextContent.Trim()));
+        await cut.Instance.ReorderTerminalAsync("second", "first", after: false);
+        await cut.Instance.ReorderTerminalAsync("first", "second", after: false);
+        await cut.Instance.ReorderTerminalAsync("first", "first", after: true);
+        Assert.Equal(["third", "first", "fourth"], cut.FindAll("[role=tab]").Select(tab => tab.TextContent.Trim()));
+    }
+
+    [Fact]
     public async Task WorkloadMetadata_FollowsTheActiveTerminalWithoutRemounting()
     {
         var updates = Channel.CreateUnbounded<WatchTerminalsUpdate>();
