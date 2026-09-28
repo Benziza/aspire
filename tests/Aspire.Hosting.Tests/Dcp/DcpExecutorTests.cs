@@ -87,8 +87,12 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         Assert.NotEqual(previous.Metadata.Uid, replacement.Metadata.Uid);
     }
 
-    [Fact]
-    public async Task RestartedExecutableIgnoresLateStatusFromPreviousIncarnation()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task RestartedExecutableIgnoresLateStatusFromPreviousIncarnation(bool deleteReturnsNotFound, bool watchReportsDeletion)
     {
         var builder = DistributedApplication.CreateBuilder();
         builder.AddExecutable("program", "program", builder.AppHostDirectory);
@@ -151,10 +155,16 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
             () => states.Any(s => s.State == ExecutableState.Finished && s.ExitCode == 0),
             "The first executable must finish before it can be restarted.");
 
-        // Simulate the watch observing deletion before DeleteAsync returns the old object. The
-        // executor must use the UID from the delete response rather than the watcher's cleared cache.
-        kubernetesService.PushResourceDeleted(previous);
-        await deletionObserved.Task.DefaultTimeout();
+        if (watchReportsDeletion)
+        {
+            kubernetesService.PushResourceDeleted(previous);
+            await deletionObserved.Task.DefaultTimeout();
+        }
+
+        if (deleteReturnsNotFound)
+        {
+            kubernetesService.DeletedResources.Enqueue(previous.Metadata.Name);
+        }
 
         var reference = executor.GetResource(previous.Metadata.Name);
         var restartTask = executor.StartResourceAsync(reference, TestContext.Current.CancellationToken);
@@ -181,6 +191,90 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
             () => states.Any(s => s.State == ExecutableState.Finished && s.ExitCode == 2),
             "A new executable can finish without first reporting Running.");
         Assert.DoesNotContain(states, s => s.ExitCode == 7);
+    }
+
+    [Fact]
+    public async Task EndpointRefreshDoesNotPublishSupersededExecutable()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        builder.AddExecutable("program", "program", builder.AppHostDirectory);
+        var recreationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRecreation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpointEventsProcessed = Channel.CreateUnbounded<bool>();
+        var creationCount = 0;
+        var kubernetesService = new TestKubernetesService(
+            beforeCreateAsync: async (resource, cancellationToken) =>
+            {
+                if (resource is Executable { AppModelResourceName: "program" } &&
+                    Interlocked.Increment(ref creationCount) == 2)
+                {
+                    recreationStarted.TrySetResult();
+                    await releaseRecreation.Task.WaitAsync(cancellationToken);
+                }
+            },
+            afterWatchEventAsync: (context, _) =>
+            {
+                if (context.Resource is Endpoint { Metadata.Name: "program-endpoint" })
+                {
+                    endpointEventsProcessed.Writer.TryWrite(true);
+                }
+
+                return Task.CompletedTask;
+            });
+        var changes = new ConcurrentQueue<string?>();
+        var events = new DcpExecutorEvents();
+        events.Subscribe<OnResourceChangedContext>(context =>
+        {
+            if (context.Resource.Name == "program")
+            {
+                changes.Enqueue(context.Status.State);
+            }
+
+            return Task.CompletedTask;
+        });
+
+        using var app = builder.Build();
+        await using var executor = CreateAppExecutor(
+            app.Services.GetRequiredService<DistributedApplicationModel>(),
+            kubernetesService: kubernetesService,
+            events: events);
+        await executor.RunApplicationAsync().DefaultTimeout();
+
+        var previous = Assert.Single(GetCreatedExecutablesForResource(kubernetesService, "program"));
+        previous.Status = new ExecutableStatus { State = ExecutableState.Finished, ExitCode = 0 };
+        kubernetesService.PushResourceModified(previous);
+        await AsyncTestHelpers.AssertIsTrueRetryAsync(
+            () => changes.Contains(ExecutableState.Finished),
+            "The first executable must finish before it can be restarted.");
+
+        var endpoint = Endpoint.Create("program-endpoint", "", "program-service");
+        endpoint.Metadata.OwnerReferences = [new V1OwnerReference
+        {
+            ApiVersion = previous.ApiVersion,
+            Kind = previous.Kind,
+            Name = previous.Metadata.Name,
+            Uid = previous.Metadata.Uid
+        }];
+        var finishedCountBeforeRefresh = changes.Count(state => state == ExecutableState.Finished);
+        kubernetesService.PushResourceModified(endpoint);
+        await endpointEventsProcessed.Reader.ReadAsync().AsTask().DefaultTimeout();
+        Assert.Equal(finishedCountBeforeRefresh + 1, changes.Count(state => state == ExecutableState.Finished));
+
+        var restartTask = executor.StartResourceAsync(executor.GetResource(previous.Metadata.Name), TestContext.Current.CancellationToken);
+        try
+        {
+            await recreationStarted.Task.DefaultTimeout();
+            var countBeforeRefresh = changes.Count;
+            kubernetesService.PushResourceModified(endpoint);
+            await endpointEventsProcessed.Reader.ReadAsync().AsTask().DefaultTimeout();
+            Assert.Equal(countBeforeRefresh, changes.Count);
+        }
+        finally
+        {
+            releaseRecreation.TrySetResult();
+        }
+
+        await restartTask.DefaultTimeout();
     }
 
     [Fact]

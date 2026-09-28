@@ -91,18 +91,24 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
 
     internal void MarkPreviousIncarnationSuperseded(string kind, string name, string? uid)
     {
-        if (string.IsNullOrEmpty(uid))
-        {
-            return;
-        }
-
         // Resource-stopped callbacks run under the watcher's output semaphore and may restart
         // their resource. Only synchronize UID state here, not the callbacks that publish it.
         lock (_incarnationLock)
         {
+            var key = (kind, name);
+            if (string.IsNullOrEmpty(uid) && _observedResources.TryGetValue(key, out var previous))
+            {
+                uid = previous.Uid;
+            }
+
+            if (string.IsNullOrEmpty(uid))
+            {
+                return;
+            }
+
             // Deleting a DCP object does not drain its watch. A final status update from the
             // old UID may arrive after the replacement's Starting state was published.
-            _supersededResourceUids[(kind, name)] = uid;
+            _supersededResourceUids[key] = uid;
         }
     }
 
@@ -1000,23 +1006,36 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
             if (appModelResourceName is not null &&
                 _resourceState.ApplicationModel.TryGetValue(appModelResourceName, out var appModelResource))
             {
-                var status = GetResourceStatus(cr);
-                await _executorEvents.PublishAsync(new OnResourceChangedContext(_shutdownToken, resourceKind, appModelResource, resourceName, status, status.State, s =>
+                Task publishTask;
+                lock (_incarnationLock)
                 {
-                    if (cr is Container container)
+                    // An endpoint or service change can refresh a cached workload after its UID
+                    // was superseded but before the workload watch receives its delete event.
+                    if (IsSuperseded(resourceKind, resourceName, cr.Metadata.Uid))
                     {
-                        return _snapshotBuilder.ToSnapshot(container, s);
+                        return;
                     }
-                    else if (cr is Executable exe)
+
+                    var status = GetResourceStatus(cr);
+                    publishTask = _executorEvents.PublishAsync(new OnResourceChangedContext(_shutdownToken, resourceKind, appModelResource, resourceName, status, status.State, s =>
                     {
-                        return _snapshotBuilder.ToSnapshot(exe, s);
-                    }
-                    else if (cr is ContainerExec containerExec)
-                    {
-                        return _snapshotBuilder.ToSnapshot(containerExec, s);
-                    }
-                    return s;
-                })).ConfigureAwait(false);
+                        if (cr is Container container)
+                        {
+                            return _snapshotBuilder.ToSnapshot(container, s);
+                        }
+                        else if (cr is Executable exe)
+                        {
+                            return _snapshotBuilder.ToSnapshot(exe, s);
+                        }
+                        else if (cr is ContainerExec containerExec)
+                        {
+                            return _snapshotBuilder.ToSnapshot(containerExec, s);
+                        }
+                        return s;
+                    }));
+                }
+
+                await publishTask.ConfigureAwait(false);
             }
         }
     }
@@ -1095,6 +1114,12 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
                 return isReplacement ? ResourceChangeResult.Replaced : ResourceChangeResult.Updated;
 
             case WatchEventType.Deleted:
+                // A delete can reach this watcher before StartResourceAsync receives NotFound
+                // from the API, leaving no observed UID for that path to mark later.
+                if (!string.IsNullOrEmpty(resource.Metadata.Uid))
+                {
+                    _supersededResourceUids[resourceKey] = resource.Metadata.Uid;
+                }
                 _observedResources.TryRemove(resourceKey, out _);
                 map.Remove(resource.Metadata.Name, out _);
                 return ResourceChangeResult.Deleted;
