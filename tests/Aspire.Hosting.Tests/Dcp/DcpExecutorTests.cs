@@ -44,6 +44,91 @@ namespace Aspire.Hosting.Tests.Dcp;
 public class DcpExecutorTests(ITestOutputHelper outputHelper)
 {
     [Fact]
+    public async Task RestartedExecutableIgnoresLateStatusFromPreviousIncarnation()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        builder.AddExecutable("program", "program", builder.AppHostDirectory);
+        var recreationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRecreation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var oldStatusObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var creationCount = 0;
+        var kubernetesService = new TestKubernetesService(
+            beforeCreateAsync: async (resource, cancellationToken) =>
+            {
+                if (resource is Executable { AppModelResourceName: "program" } &&
+                    Interlocked.Increment(ref creationCount) == 2)
+                {
+                    recreationStarted.TrySetResult();
+                    await releaseRecreation.Task.WaitAsync(cancellationToken);
+                }
+            },
+            afterWatchEventAsync: (context, _) =>
+            {
+                if (context.Resource is Executable { Status.ExitCode: 7 })
+                {
+                    oldStatusObserved.TrySetResult();
+                }
+
+                return Task.CompletedTask;
+            });
+        var states = new ConcurrentQueue<(string? State, int? ExitCode)>();
+        var events = new DcpExecutorEvents();
+        events.Subscribe<OnResourceChangedContext>(context =>
+        {
+            if (context.Resource.Name == "program")
+            {
+                states.Enqueue((context.Status.State, context.UpdateSnapshot(new CustomResourceSnapshot
+                {
+                    ResourceType = KnownResourceTypes.Executable,
+                    Properties = []
+                }).ExitCode));
+            }
+
+            return Task.CompletedTask;
+        });
+
+        using var app = builder.Build();
+        await using var executor = CreateAppExecutor(
+            app.Services.GetRequiredService<DistributedApplicationModel>(),
+            kubernetesService: kubernetesService,
+            events: events);
+        await executor.RunApplicationAsync().DefaultTimeout();
+
+        var previous = Assert.Single(GetCreatedExecutablesForResource(kubernetesService, "program"));
+        previous.Status = new ExecutableStatus { State = ExecutableState.Finished, ExitCode = 0 };
+        kubernetesService.PushResourceModified(previous);
+        await AsyncTestHelpers.AssertIsTrueRetryAsync(
+            () => states.Any(s => s.State == ExecutableState.Finished && s.ExitCode == 0),
+            "The first executable must finish before it can be restarted.");
+
+        var reference = executor.GetResource(previous.Metadata.Name);
+        var restartTask = executor.StartResourceAsync(reference, TestContext.Current.CancellationToken);
+        try
+        {
+            await recreationStarted.Task.DefaultTimeout();
+            previous.Status = new ExecutableStatus { State = ExecutableState.Finished, ExitCode = 7 };
+            kubernetesService.PushResourceModified(previous);
+            await oldStatusObserved.Task.DefaultTimeout();
+        }
+        finally
+        {
+            releaseRecreation.TrySetResult();
+        }
+
+        await restartTask.DefaultTimeout();
+        var replacement = GetCreatedExecutablesForResource(kubernetesService, "program").Last();
+        Assert.NotEqual(previous.Metadata.Uid, replacement.Metadata.Uid);
+
+        replacement.Status = new ExecutableStatus { State = ExecutableState.Finished, ExitCode = 2 };
+        kubernetesService.PushResourceModified(replacement);
+
+        await AsyncTestHelpers.AssertIsTrueRetryAsync(
+            () => states.Any(s => s.State == ExecutableState.Finished && s.ExitCode == 2),
+            "A new executable can finish without first reporting Running.");
+        Assert.DoesNotContain(states, s => s.ExitCode == 7);
+    }
+
+    [Fact]
     public async Task ExecutablePrecomputedReplicasCreateDistinctProducersAndRestartIndividually()
     {
         var builder = DistributedApplication.CreateBuilder();

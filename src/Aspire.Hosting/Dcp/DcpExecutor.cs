@@ -1268,6 +1268,7 @@ internal sealed class DcpExecutor : IDcpExecutor, IDcpObjectFactory, IAsyncDispo
 
                 case RenderedModelResource<Container> cr:
                     await EnsureResourceDeletedAsync<Container>(resourceReference, cancellationToken).ConfigureAwait(false);
+                    await _resourceWatcher.MarkPreviousIncarnationSupersededAsync(Model.Dcp.ContainerKind, resourceReference.DcpResourceName, cancellationToken).ConfigureAwait(false);
 
                     // Ensure we explicitly start the container even if original container was created in "delay-start" mode.
                     cr.DcpResource.Spec.Start = true;
@@ -1280,6 +1281,7 @@ internal sealed class DcpExecutor : IDcpExecutor, IDcpObjectFactory, IAsyncDispo
                     break;
                 case RenderedModelResource<Executable> er:
                     await EnsureResourceDeletedAsync<Executable>(resourceReference, cancellationToken).ConfigureAwait(false);
+                    await _resourceWatcher.MarkPreviousIncarnationSupersededAsync(Model.Dcp.ExecutableKind, resourceReference.DcpResourceName, cancellationToken).ConfigureAwait(false);
 
                     // Ensure we explicitly start the executable even if original executable was created in "delay-start" mode.
                     er.DcpResource.Spec.Start = true;

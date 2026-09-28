@@ -45,6 +45,8 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
     // The stable key avoids retaining stale entries when a delete is missed, while the UID distinguishes
     // a recreated object from an unchanged watch replay. See ProcessResourceChange.
     private readonly ConcurrentDictionary<(string Kind, string Name), ObservedResource> _observedResources = new();
+    private readonly Dictionary<(string Kind, string Name), string> _supersededResourceUids = [];
+    private readonly SemaphoreSlim _outputSemaphore = new(1);
 
     // Holds names of resources that reached terminal state and logs have already been flushed for them.
     // Prevents re-reading DCP's log store every time an already-terminal resource is reported again.
@@ -81,6 +83,25 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
     // Internal for testing.
     internal Func<string?, ValueTask>? BeforeLogBatchDeliveryAsync { get; set; }
 
+    internal async Task MarkPreviousIncarnationSupersededAsync(string kind, string name, CancellationToken cancellationToken)
+    {
+        await _outputSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var key = (kind, name);
+            if (_observedResources.TryGetValue(key, out var previous) && !string.IsNullOrEmpty(previous.Uid))
+            {
+                // Deleting a DCP object does not drain its watch. A final status update from the
+                // old UID may arrive after the replacement's Starting state was published.
+                _supersededResourceUids[key] = previous.Uid;
+            }
+        }
+        finally
+        {
+            _outputSemaphore.Release();
+        }
+    }
+
     public DcpResourceWatcher(
         ILogger logger,
         IKubernetesService kubernetesService,
@@ -115,12 +136,10 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
 
     public void Start()
     {
-        var outputSemaphore = new SemaphoreSlim(1);
-
         var cancellationToken = _shutdownToken;
         var watchResourcesTask = Task.Run(async () =>
         {
-            using (outputSemaphore)
+            using (_outputSemaphore)
             {
                 await Task.WhenAll(
                     Task.Run(() => WatchKubernetesResourceAsync<Executable>((t, r) => ProcessResourceChange(t, r, _resourceState.ExecutablesMap, Model.Dcp.ExecutableKind, (e, s) => _snapshotBuilder.ToSnapshot(e, s)))),
@@ -205,7 +224,7 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
                 {
                     await foreach (var (eventType, resource) in _kubernetesService.WatchAsync<T>(cancellationToken: pipelineCancellationToken).ConfigureAwait<(global::k8s.WatchEventType, T)>(false))
                     {
-                        await outputSemaphore.WaitAsync(pipelineCancellationToken).ConfigureAwait(false);
+                        await _outputSemaphore.WaitAsync(pipelineCancellationToken).ConfigureAwait(false);
 
                         try
                         {
@@ -213,7 +232,7 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
                         }
                         finally
                         {
-                            outputSemaphore.Release();
+                            _outputSemaphore.Release();
                         }
                     }
                 }, cancellationToken).ConfigureAwait(false);
@@ -984,6 +1003,19 @@ internal sealed class DcpResourceWatcher : IConsoleLogsService, IAsyncDisposable
             where T : CustomResource, IKubernetesStaticMetadata
     {
         var resourceKey = (T.ObjectKind, resource.Metadata.Name);
+
+        if (_supersededResourceUids.TryGetValue(resourceKey, out var supersededUid) &&
+            string.Equals(supersededUid, resource.Metadata.Uid, StringComparison.Ordinal))
+        {
+            // A delete for the old object still cleans up its cached state, unless the
+            // replacement has already been observed under the same name.
+            if (watchEventType != WatchEventType.Deleted ||
+                (_observedResources.TryGetValue(resourceKey, out var current) &&
+                 !string.Equals(current.Uid, supersededUid, StringComparison.Ordinal)))
+            {
+                return ResourceChangeResult.Ignored;
+            }
+        }
 
         switch (watchEventType)
         {

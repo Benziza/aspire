@@ -266,22 +266,15 @@ internal static class CommandsConfigurationExtensions
 
             try
             {
-                // A restarted rebuilder can briefly publish the previous process's Finished
-                // state after Starting. Wait for this run's Running state before accepting a
-                // terminal result, and subscribe before starting so a fast build isn't missed.
-                var runningTask = resourceNotificationService.WaitForResourceAsync(rebuilderResource.Name,
-                    evt => evt.ResourceId == rebuilderInstanceName &&
-                           evt.Snapshot.Version > previousRebuilderVersion &&
-                           evt.Snapshot.State?.Text == KnownResourceStates.Running,
-                    buildTimeoutCts.Token);
-
                 LogBuildInformation(mainLogger, buildOutput, "Building project...");
                 await orchestrator.StartResourceAsync(rebuilderInstanceName, cancellationToken).ConfigureAwait(false);
 
-                var runningEvent = await runningTask.ConfigureAwait(false);
+                // WatchAsync replays the current snapshot, so a build that exits before this
+                // subscription is still observed. The DCP watcher ignores late events from
+                // the deleted executable's UID after a restart.
                 var terminalEvent = await resourceNotificationService.WaitForResourceAsync(rebuilderResource.Name,
                     evt => evt.ResourceId == rebuilderInstanceName &&
-                           evt.Snapshot.Version > runningEvent.Snapshot.Version &&
+                           evt.Snapshot.Version > previousRebuilderVersion &&
                            KnownResourceStates.TerminalStates.Contains(evt.Snapshot.State?.Text),
                     buildTimeoutCts.Token).ConfigureAwait(false);
                 exitCode = terminalEvent.Snapshot.ExitCode;
