@@ -328,7 +328,7 @@ jobs:
 
             # Cleanup between iterations
             Remove-Item -Recurse -Force "${{ github.workspace }}/testresults" -ErrorAction SilentlyContinue
-            Get-Process | Where-Object { $_.ProcessName -match '^dcp' } | Stop-Process -Force -ErrorAction SilentlyContinue
+            Get-Process | Where-Object { $_.ProcessName -match '^dcp' -or $_.ProcessName -eq 'dotnet' } | Stop-Process -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 1
 
             # Run test (capture output for zero-test detection)
