@@ -1,8 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-// Open palette-test in the Terminals playground, then switch Dashboard themes to compare palettes.
-// Run directly: dotnet run --file pallete-test.cs (add -- --once to emit the chart and exit).
+// Open palette-test in the Terminals playground, then use the terminal footer's
+// Terminal palette selector to compare Aspire Light and Aspire Dark.
+// Run directly: dotnet run --file palette-test.cs (add -- --once to emit the chart and exit).
 // Original chart inspired by the block/foreground views in https://github.com/eikenb/terminal-colors.
 // SGR reference: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 
@@ -26,7 +27,7 @@ void Cell(string text, string foreground, string background, int width)
 }
 
 chart.AppendLine("ASPIRE TERMINAL PALETTE REVIEW");
-chart.AppendLine("Switch Dashboard Light / Dark in Settings. Select text to compare selection colors.");
+chart.AppendLine("Switch Aspire Light / Dark using the Terminal palette selector in the footer. Select text to compare selection colors.");
 chart.AppendLine("ANSI names identify slots, not fixed RGB values. Low-contrast matrix cells are intentional.");
 chart.AppendLine();
 chart.AppendLine("DEFAULT SURFACE (uncolored cells use the palette background)");

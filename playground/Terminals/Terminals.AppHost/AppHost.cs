@@ -8,7 +8,7 @@ using Terminals.AppHost;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-builder.AddCSharpApp("palette-test", "Scripts/pallete-test.cs")
+builder.AddCSharpApp("palette-test", "Scripts/palette-test.cs")
     .WithTerminal(options =>
     {
         options.Columns = 120;
