@@ -28,7 +28,7 @@ env:
   #   --filter-method "*.TestMethodName"
   #   --filter-class "*.TestClassName"
   #   --filter-method "*.Test1" --filter-method "*.Test2"
-  TEST_FILTER: '--filter-method "*.EndpointsGetDevLocalhostUrlsWhenDashboardHasDevLocalhostUrl" --filter-method "*.ExpectedNumberOfUrlsForReplicatedResource" --filter-method "*.WithUrlForEndpointCanLinkToAnotherResourcesEndpoint" --filter-method "*.WithUrlForEndpointUpdatesUrlForEndpoint" --filter-method "*.WithUrlForEndpointAddTurnsRelativeUrlIntoAbsoluteUrl" --filter-method "*.WithUrlsTurnsRelativeEndpointUrlsIntoAbsoluteUrls" --filter-method "*.ProjectLaunchProfileRelativeLaunchUrlIsAddedToEndpointUrl" --filter-method "*.EndpointsResultInUrls" --filter-method "*.ProjectLaunchProfileAbsoluteLaunchUrlIsUsedAsEndpointUrl" --filter-method "*.CustomResourceUrlsTransitionThroughExpectedLifecycleStates" --filter-method "*.WithUrlAddsUrlAnnotation" --filter-method "*.WithUrlsCallsCallbackAfterBeforeResourceStartedEvent" --filter-method "*.WithUrlsProvidesServiceProviderInstanceOnCallbackContextAllocated" --filter-method "*.WithUrlForEndpointMatchesEquivalentEndpointOwnerByResourceName" --filter-method "*.WithUrlForEndpointDoesNotMatchAnotherEndpointOwnerWithTheSameEndpointName" --filter-method "*.WithUrlsAddsAnnotationForAsyncCallback" --filter-method "*.WithUrlsAddsAnnotationForSyncCallback"'
+  TEST_FILTER: '--filter-method "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess" --filter-method "*.StartAsync_DashboardUrls_DisplayPropertiesSet" --filter-method "*.LogStreamOptionsWork"'
 
   # Target operating systems (comma-separated)
   # Options: ubuntu-latest, windows-latest, macos-latest
@@ -36,7 +36,7 @@ env:
 
   # Number of parallel runners per OS
   # Total jobs = RUNNERS_PER_OS × number of OSes (must be ≤ 256)
-  RUNNERS_PER_OS: "36"
+  RUNNERS_PER_OS: "20"
 
   # Number of test iterations each runner executes
   ITERATIONS_PER_RUNNER: "1"
