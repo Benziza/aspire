@@ -75,8 +75,8 @@ jobs:
             '{include: [
               range(1; $runners + 1) as $index |
               [
-                "CUSTOM-STOCK",
-                "CUSTOM-START-TIME-GUARD-TRACE"
+                "GUARDED-WITHURLS",
+                "GUARDED-HOSTING1"
               ][] as $arm |
               {
                 os: "windows-latest",
@@ -87,7 +87,7 @@ jobs:
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
           TOTAL=$((RUNNERS * 2))
-          echo "Generated matrix: $TOTAL Windows runners across stock and guarded Hosting-1 arms"
+          echo "Generated matrix: $TOTAL Windows runners across guarded WithUrls and Hosting-1 arms"
           echo "Each arm runs one test process on a fresh runner"
 
   build_dcp_experiment:
@@ -428,12 +428,13 @@ jobs:
               $filterArgs = @("--filter-class", "*.WithUrlsTests")
               $expectedTests = 35
             }
-            "CUSTOM-STOCK" {
-              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\stock\dcp.exe"
-              $filterArgs = @("--filter-trait", "Partition=1")
-              $expectedTests = 27
+            "GUARDED-WITHURLS" {
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\start-time-guard\dcp.exe"
+              $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
+              $filterArgs = @("--filter-class", "*.WithUrlsTests")
+              $expectedTests = 35
             }
-            "CUSTOM-START-TIME-GUARD-TRACE" {
+            "GUARDED-HOSTING1" {
               $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\start-time-guard\dcp.exe"
               $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
               $filterArgs = @("--filter-trait", "Partition=1")
@@ -590,10 +591,10 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload process-tree guard events
-        if: ${{ always() && matrix.arm == 'CUSTOM-START-TIME-GUARD-TRACE' }}
+        if: ${{ always() && startsWith(matrix.arm, 'GUARDED-') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: guard-events-${{ matrix.index }}
+          name: guard-events-${{ matrix.arm }}-${{ matrix.index }}
           path: guard-events.log
           if-no-files-found: ignore
 
@@ -611,10 +612,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | Hosting-1 custom-stock versus guarded DCP teardown |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | Large-sample production-shaped DCP guard confirmation |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | Custom stock DCP; custom DCP that rejects and records descendants older than their alleged parent |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | Guarded WithUrlsTests; guarded Hosting-1 |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
