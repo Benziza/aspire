@@ -286,6 +286,8 @@ jobs:
         run: |
           $pass = 0
           $fail = 0
+          $dotnetPath = Get-Content "${{ github.workspace }}\artifacts\toolset\sdk.txt"
+          $dotnetExe = Join-Path $dotnetPath "dotnet.exe"
 
           $computer = Get-CimInstance Win32_ComputerSystem
           $systemDrive = Get-PSDrive -Name D -ErrorAction SilentlyContinue
@@ -336,7 +338,7 @@ jobs:
               -NoNewWindow -PassThru
 
             try {
-              & ${{ env.DOTNET_SCRIPT }} test --project "${{ env.TEST_PROJECT_PATH }}" `
+              & $dotnetExe test --project "${{ env.TEST_PROJECT_PATH }}" `
                 --no-restore `
                 --no-build `
                 -- `
