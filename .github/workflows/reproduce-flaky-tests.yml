@@ -23,7 +23,7 @@ env:
   TEST_PROJECT: "Hosting"
 
   # The arms run concurrently so they share runner-pool and time-of-day effects.
-  RUNNERS_PER_ARM: "48"
+  RUNNERS_PER_ARM: "72"
 
 jobs:
 
@@ -65,7 +65,7 @@ jobs:
             --argjson runners "$RUNNERS" \
             '{include: [
               range(1; $runners + 1) as $index |
-              ["T1", "T4", "N4"][] as $arm |
+              ["H1-FULL", "H1-DASHBOARD", "H1-NODASHBOARD"][] as $arm |
               {
                 os: "windows-latest",
                 index: $index,
@@ -76,7 +76,7 @@ jobs:
 
           TOTAL=$((RUNNERS * 3))
           echo "Generated matrix: $TOTAL Windows runners across 3 concurrent arms"
-          echo "DCP-heavy test processes: $((RUNNERS * 5)); unit-test processes: $((RUNNERS * 4))"
+          echo "Each arm runs one test process on a fresh runner"
 
   build_cli_e2e_image:
     name: Build CLI E2E Docker image
@@ -293,26 +293,32 @@ jobs:
           $systemDrive = Get-PSDrive -Name D -ErrorAction SilentlyContinue
           Write-Host "Runner fingerprint: processors=$($computer.NumberOfLogicalProcessors), memoryBytes=$($computer.TotalPhysicalMemory), driveDBytes=$($systemDrive.Used + $systemDrive.Free), image=$env:ImageVersion"
 
+          $iterations = 1
           switch ($env:EXPERIMENT_ARM) {
-            "T1" {
-              $iterations = 1
+            "H1-FULL" {
+              $filterArgs = @("--filter-trait", "Partition=1")
+              $expectedTests = 62
+            }
+            "H1-DASHBOARD" {
               $filterArgs = @(
                 "--filter-method", "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess",
                 "--filter-method", "*.StartAsync_DashboardUrls_DisplayPropertiesSet",
-                "--filter-method", "*.LogStreamOptionsWork"
+                "--filter-method", "*.StartAsync_UnsecuredAllowAnonymous_PassedToDashboardProcess",
+                "--filter-method", "*.StartAsync_ResourceServiceEndpointUrl_PassedToDashboardServiceHost",
+                "--filter-method", "*.StartAsync_ResourceServiceEndpointUrl_RandomizePortsIgnoresConfiguredPort"
               )
+              $expectedTests = 8
             }
-            "T4" {
-              $iterations = 4
+            "H1-NODASHBOARD" {
               $filterArgs = @(
-                "--filter-method", "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess",
-                "--filter-method", "*.StartAsync_DashboardUrls_DisplayPropertiesSet",
-                "--filter-method", "*.LogStreamOptionsWork"
+                "--filter-trait", "Partition=1",
+                "--filter-not-method", "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess",
+                "--filter-not-method", "*.StartAsync_DashboardUrls_DisplayPropertiesSet",
+                "--filter-not-method", "*.StartAsync_UnsecuredAllowAnonymous_PassedToDashboardProcess",
+                "--filter-not-method", "*.StartAsync_ResourceServiceEndpointUrl_PassedToDashboardServiceHost",
+                "--filter-not-method", "*.StartAsync_ResourceServiceEndpointUrl_RandomizePortsIgnoresConfiguredPort"
               )
-            }
-            "N4" {
-              $iterations = 4
-              $filterArgs = @("--filter-class", "Aspire.Hosting.Tests.Utils.PasswordGeneratorTests")
+              $expectedTests = 54
             }
             default {
               throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
@@ -347,9 +353,11 @@ jobs:
                 --hangdump `
                 --hangdump-type none `
                 --hangdump-timeout 4m `
-                --timeout 6m `
+                --timeout 8m `
                 --results-directory "${{ github.workspace }}/testresults" `
-                @filterArgs *> $iterOutput
+                @filterArgs `
+                --filter-not-trait "quarantined=true" `
+                --filter-not-trait "outerloop=true" *> $iterOutput
               $result = $LASTEXITCODE
             }
             finally {
@@ -363,8 +371,10 @@ jobs:
             # Detect zero-test runs (--ignore-exit-code 8 in Testing.targets masks exit code 8)
             if ($result -eq 0) {
               $content = Get-Content $iterOutput -Raw -ErrorAction SilentlyContinue
-              if (-not ($content -match '(?i)total:\s*[1-9]')) {
-                Write-Host "::error::Iteration ${i}: Zero tests executed. Verify TEST_FILTER and quarantine settings."
+              $totalMatch = [regex]::Match($content, '(?im)^\s*total:\s*(\d+)\s*$')
+              if (-not $totalMatch.Success -or [int]$totalMatch.Groups[1].Value -ne $expectedTests) {
+                $actualTests = if ($totalMatch.Success) { $totalMatch.Groups[1].Value } else { "unknown" }
+                Write-Host "::error::Iteration ${i}: Expected $expectedTests tests for $env:EXPERIMENT_ARM, but observed $actualTests."
                 $result = 8
               }
             }
@@ -415,10 +425,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | Concurrent DCP exposure scaling with unit-test control |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | Concurrent Hosting-1 dashboard partition split |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | T1: DCP-heavy ×1; T4: DCP-heavy ×4; N4: non-DCP unit test ×4 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | Full Partition 1; dashboard-enabled methods; Partition 1 without dashboard-enabled methods |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
