@@ -530,6 +530,7 @@ public class Program
         builder.Services.AddSingleton<IPackagingService, PackagingService>();
         builder.Services.AddSingleton<IBundlePayloadProvider, EmbeddedBundlePayloadProvider>();
         builder.Services.AddSingleton<IInstallSidecarReader, InstallSidecarReader>();
+        builder.Services.AddSingleton<InstallSourceDetector>();
         builder.Services.AddSingleton<IPeerInstallProbe, PeerInstallProbe>();
         builder.Services.AddSingleton<IInstallationCandidateSource, PathInstallationCandidateSource>();
         builder.Services.AddSingleton<IInstallationCandidateSource, ReleasePrefixInstallationCandidateSource>();
@@ -1164,16 +1165,8 @@ public class Program
         // Agent events must not also count as ordinary CLI invocations.
         using var mainActivity = isAgentTelemetryInvocation
             ? null
-            : telemetry.StartReportedActivity(TelemetryConstants.Activities.Main, ActivityKind.Internal);
+            : StartMainActivity(telemetry, app.Services.GetRequiredService<InstallSourceDetector>());
         ProfileCaptureService.ProfileCaptureSession? profileCaptureSession = null;
-
-        if (mainActivity != null)
-        {
-            var currentProcess = Process.GetCurrentProcess();
-            mainActivity.SetStartTime(currentProcess.StartTime);
-            mainActivity.AddTag(TelemetryConstants.Tags.ProcessPid, currentProcess.Id);
-            mainActivity.AddTag(TelemetryConstants.Tags.ProcessExecutableName, "aspire");
-        }
 
         try
         {
@@ -1296,6 +1289,21 @@ public class Program
             await app.StopAsync().ConfigureAwait(false);
             await shutdownTelemetryTask;
         }
+    }
+
+    internal static Activity? StartMainActivity(AspireCliTelemetry telemetry, InstallSourceDetector installSourceDetector)
+    {
+        var activity = telemetry.StartReportedActivity(TelemetryConstants.Activities.Main, ActivityKind.Internal);
+        if (activity is not null)
+        {
+            using var currentProcess = Process.GetCurrentProcess();
+            activity.SetStartTime(currentProcess.StartTime);
+            activity.AddTag(TelemetryConstants.Tags.ProcessPid, currentProcess.Id);
+            activity.AddTag(TelemetryConstants.Tags.ProcessExecutableName, "aspire");
+            activity.SetTag(TelemetryConstants.Tags.InstallSource, installSourceDetector.Detect());
+        }
+
+        return activity;
     }
 
     internal static void InitializeCommandTelemetry(Command command, TelemetryManager manager, AspireCliTelemetry telemetry)
