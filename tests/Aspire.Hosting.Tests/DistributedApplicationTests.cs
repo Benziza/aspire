@@ -2291,6 +2291,20 @@ public class DistributedApplicationTests
         await app.StopAsync(token).DefaultTimeout(TestConstants.DefaultOrchestratorTestLongTimeout);
     }
 
+    [Fact]
+    public async Task DashboardUrlsThenLogStreamOptionsWork()
+    {
+        await StartAsync_DashboardUrls_DisplayPropertiesSet();
+        await LogStreamOptionsWork();
+    }
+
+    [Fact]
+    public async Task LogStreamOptionsThenDashboardUrls()
+    {
+        await LogStreamOptionsWork();
+        await StartAsync_DashboardUrls_DisplayPropertiesSet();
+    }
+
     [Theory]
     [RequiresFeature(TestFeature.ContainerRuntime)]
     [InlineData(0)] // Success exit code
