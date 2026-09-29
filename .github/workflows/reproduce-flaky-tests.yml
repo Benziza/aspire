@@ -75,6 +75,7 @@ jobs:
             '{include: [
               range(1; $runners + 1) as $index |
               [
+                "CUSTOM-STOCK",
                 "CUSTOM-START-TIME-GUARD-TRACE"
               ][] as $arm |
               {
@@ -85,8 +86,8 @@ jobs:
             ]}')
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
-          TOTAL=$RUNNERS
-          echo "Generated matrix: $TOTAL Windows runners in the guarded trace arm"
+          TOTAL=$((RUNNERS * 2))
+          echo "Generated matrix: $TOTAL Windows runners across stock and guarded Hosting-1 arms"
           echo "Each arm runs one test process on a fresh runner"
 
   build_dcp_experiment:
@@ -143,7 +144,7 @@ jobs:
           \t\t\t// Windows can retain a dead process's parent PID after that PID is reused.
           \t\t\t// A real child cannot have started before its parent.
           \t\t\tchildIdentityTime := processIdentityTime(child)
-          \t\t\tif childIdentityTime.Before(currentIdentityTime) {
+          \t\t\tif !currentIdentityTime.IsZero() && !childIdentityTime.IsZero() && childIdentityTime.Before(currentIdentityTime) {
           \t\t\t\tif guardLogPath := os.Getenv("DCP_PROCESS_TREE_GUARD_LOG"); guardLogPath != "" {
           \t\t\t\t\tcurrentName, currentNameErr := current.Name()
           \t\t\t\t\tif currentNameErr != nil {
@@ -429,14 +430,14 @@ jobs:
             }
             "CUSTOM-STOCK" {
               $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\stock\dcp.exe"
-              $filterArgs = @("--filter-class", "*.WithUrlsTests")
-              $expectedTests = 35
+              $filterArgs = @("--filter-trait", "Partition=1")
+              $expectedTests = 27
             }
             "CUSTOM-START-TIME-GUARD-TRACE" {
               $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\start-time-guard\dcp.exe"
               $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
-              $filterArgs = @("--filter-class", "*.WithUrlsTests")
-              $expectedTests = 35
+              $filterArgs = @("--filter-trait", "Partition=1")
+              $expectedTests = 27
             }
             default {
               throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
@@ -610,10 +611,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | Trace impossible parent/child relationships rejected by guarded DCP teardown |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | Hosting-1 custom-stock versus guarded DCP teardown |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | Custom DCP that rejects and records descendants older than their alleged parent |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | Custom stock DCP; custom DCP that rejects and records descendants older than their alleged parent |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
