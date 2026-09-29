@@ -10,9 +10,11 @@ namespace Aspire.Hosting
 {
     public static partial class DotnetProjectHostingExtensions
     {
+        [System.Diagnostics.CodeAnalysis.Experimental("ASPIREDOTNETPROJECT001", UrlFormat = "https://aka.ms/aspire/diagnostics/{0}")]
         [AspireExportIgnore(Reason = "Polyglot app hosts use the internal addDotnetProject dispatcher export.")]
         public static ApplicationModel.IResourceBuilder<Dotnet.DotnetProjectResource> AddDotnetProject(this IDistributedApplicationBuilder builder, string name, string path, System.Action<ProjectResourceOptions> configure) { throw null; }
 
+        [System.Diagnostics.CodeAnalysis.Experimental("ASPIREDOTNETPROJECT001", UrlFormat = "https://aka.ms/aspire/diagnostics/{0}")]
         [AspireExportIgnore(Reason = "Polyglot app hosts use the internal addDotnetProject dispatcher export.")]
         public static ApplicationModel.IResourceBuilder<Dotnet.DotnetProjectResource> AddDotnetProject(this IDistributedApplicationBuilder builder, string name, string path) { throw null; }
     }
@@ -20,6 +22,7 @@ namespace Aspire.Hosting
 
 namespace Aspire.Hosting.Dotnet
 {
+    [System.Diagnostics.CodeAnalysis.Experimental("ASPIREDOTNETPROJECT001", UrlFormat = "https://aka.ms/aspire/diagnostics/{0}")]
     [AspireExport(ExposeProperties = true)]
     public partial class DotnetProjectResource : ApplicationModel.ExecutableResource, IResourceWithServiceDiscovery, ApplicationModel.IResourceWithEndpoints, ApplicationModel.IResource
     {
