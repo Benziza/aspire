@@ -2232,7 +2232,7 @@ public class DistributedApplicationTests
         // It is not intended to verify the functionality of all possible option combinations.
 
         const string testName = "log-stream-options-work";
-        using var testProgram = CreateTestProgram(testName, randomizePorts: false);
+        using var testProgram = CreateTestProgram(testName);
 
         using var app = testProgram.Build();
 
