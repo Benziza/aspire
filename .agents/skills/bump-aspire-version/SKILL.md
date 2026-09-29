@@ -32,40 +32,48 @@ of the old version throughout the repository.
    missing or closed, ask before creating or reopening it; do not leave the policy
    pointing at a milestone the bot cannot assign.
 
-## Make the focused edit
+## Run the deterministic edit
 
-- Set `MajorVersion`, `MinorVersion`, and `PatchVersion` to the requested version.
-  Reset the lower components when advancing to a new major or minor release.
-- Keep `VersionPrefix` composed from those three properties.
-- Preserve `PreReleaseVersionLabel`, `StabilizePackageVersion`, and
-  `DotNetFinalVersionKind` unless the user explicitly requests a prerelease or
-  stabilization change. Bumping to `X.Y` does not mean publishing a stable release.
-- Preserve an existing `AspireDashboardImageTag` override unless changing it is
-  explicitly in scope and the replacement image is confirmed published. A product
-  version bump does not publish a dashboard image. Keep its explanatory comment
-  accurate without implying that the pinned image matches the new product version.
-- Update the milestone policy rule for the target branch to the confirmed milestone
-  title. Preserve other branch rules unless a release-branch transition is explicitly
-  in scope; do not infer one from a major version bump. The old
-  `.github/workflows/milestone-assignment.yml` was removed in #20390 in favor of the
-  policy bot; do not recreate it.
-- Do not update dependency versions, target frameworks, `global.json`,
-  `NuGet.config`, package manifests, generated API baselines, snapshots, or sample
-  version literals merely because they contain the old version.
-- If evidence shows another file must change, explain the dependency before
-  expanding the scope; do not perform a repository-wide version replacement.
+Use the bundled Python 3 script rather than generating ad-hoc editing code.
+From the repository root, substitute the requested version, target branch, and
+confirmed open milestone:
+
+```bash
+python3 .agents/skills/bump-aspire-version/bump_version.py 17.0 --branch main --milestone 17.0
+```
+
+`--branch` is the PR's target branch, not the feature branch. `--milestone` is
+explicit because servicing milestones can differ from product versions (for
+example, product `13.6.1` can use milestone `13.6.x`). The script does not create,
+reopen, or query GitHub milestones; confirm availability in the previous step.
+
+The script updates all three version components (`X.Y` means `X.Y.0`) and exactly
+one matching branch's milestone rule. It validates the expected file structure
+before writing either file and fails on missing or ambiguous matches. It preserves
+formatting, line endings, unrelated rules, and all other properties. Repeating the
+same command makes no further changes. If the file layout changes, update the
+script and its tests rather than bypassing its checks.
+
+Prerelease/stabilization settings and the dashboard-image pin remain unchanged:
+a product version bump neither stabilizes packages nor publishes a dashboard image.
+Review any version-specific comments separately. Do not change other release-branch
+rules, dependencies, SDKs, generated APIs, or sample versions without explicit scope.
+The old `.github/workflows/milestone-assignment.yml` was removed in #20390 in favor
+of the policy bot; do not recreate it.
 
 ## Validate
 
 Review `git diff --check` and the complete diff. Confirm only the intended version
 properties, milestone assignment, and any directly related comments changed.
 
-For a metadata-only bump, parse the XML and assert that the major, minor, and patch
-properties match the requested version and `VersionPrefix` still composes those
-properties. This does not require restoring or building the entire repository.
+Run the script's dependency-free tests:
 
-Parse the milestone policy as YAML and verify the target branch maps to the
-confirmed open milestone and all other rules are unchanged.
+```bash
+python3 -B -m unittest discover -s .agents/skills/bump-aspire-version -p 'test_*.py'
+```
+
+Confirm the resulting version components and milestone title match the request.
+Run the edit command again and confirm it reports both files unchanged.
 
 Check the diff separately to confirm prerelease settings and the dashboard-image
 pin were preserved. If the change extends beyond metadata, run focused validation
