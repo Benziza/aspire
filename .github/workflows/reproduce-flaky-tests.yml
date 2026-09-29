@@ -74,7 +74,12 @@ jobs:
             --argjson runners "$RUNNERS" \
             '{include: [
               range(1; $runners + 1) as $index |
-              ["WITHURLS", "DASHBOARD-ONLY", "PROJECT-DASHBOARD", "PROJECT-NO-DASHBOARD"][] as $arm |
+              [
+                "WITHURLS-CONTROL",
+                "WITHURLS-WAIT-CLEANUP",
+                "WITHURLS-NO-MONITOR",
+                "WITHURLS-WAIT-CLEANUP-NO-MONITOR"
+              ][] as $arm |
               {
                 os: "windows-latest",
                 index: $index,
@@ -307,21 +312,25 @@ jobs:
 
           $iterations = 1
           switch ($env:EXPERIMENT_ARM) {
-            "WITHURLS" {
+            "WITHURLS-CONTROL" {
               $filterArgs = @("--filter-class", "*.WithUrlsTests")
               $expectedTests = 35
             }
-            "DASHBOARD-ONLY" {
-              $filterArgs = @("--filter-method", "*.DashboardOnlyLifecycleCycle")
-              $expectedTests = 27
+            "WITHURLS-WAIT-CLEANUP" {
+              $env:DcpPublisher__WaitForResourceCleanup = "true"
+              $filterArgs = @("--filter-class", "*.WithUrlsTests")
+              $expectedTests = 35
             }
-            "PROJECT-DASHBOARD" {
-              $filterArgs = @("--filter-method", "*.ProjectLifecycleCycleWithDashboard")
-              $expectedTests = 27
+            "WITHURLS-NO-MONITOR" {
+              $env:DCP_DISABLE_MONITOR_PROCESS = "1"
+              $filterArgs = @("--filter-class", "*.WithUrlsTests")
+              $expectedTests = 35
             }
-            "PROJECT-NO-DASHBOARD" {
-              $filterArgs = @("--filter-method", "*.ProjectLifecycleCycleWithoutDashboard")
-              $expectedTests = 27
+            "WITHURLS-WAIT-CLEANUP-NO-MONITOR" {
+              $env:DcpPublisher__WaitForResourceCleanup = "true"
+              $env:DCP_DISABLE_MONITOR_PROCESS = "1"
+              $filterArgs = @("--filter-class", "*.WithUrlsTests")
+              $expectedTests = 35
             }
             default {
               throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
@@ -486,10 +495,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | DCP lifecycle mechanism isolation with out-of-band resource telemetry |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | WithUrlsTests DCP teardown mechanism A/B with out-of-band resource telemetry |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | WithUrlsTests; dashboard-only cycles; project cycles with dashboard; project cycles without dashboard |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | Control; synchronous resource cleanup; monitor processes disabled; both changes |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
