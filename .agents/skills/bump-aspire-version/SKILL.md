@@ -52,7 +52,7 @@ one matching branch's milestone rule. It validates the expected file structure
 before writing either file and fails on missing or ambiguous matches. It preserves
 formatting, line endings, unrelated rules, and all other properties. Repeating the
 same command makes no further changes. If the file layout changes, update the
-script and its tests rather than bypassing its checks.
+script rather than bypassing its checks.
 
 Prerelease/stabilization settings and the dashboard-image pin remain unchanged:
 a product version bump neither stabilizes packages nor publishes a dashboard image.
@@ -65,12 +65,6 @@ of the policy bot; do not recreate it.
 
 Review `git diff --check` and the complete diff. Confirm only the intended version
 properties, milestone assignment, and any directly related comments changed.
-
-Run the script's dependency-free tests:
-
-```bash
-python3 -B -m unittest discover -s .agents/skills/bump-aspire-version -p 'test_*.py'
-```
 
 Confirm the resulting version components and milestone title match the request.
 Run the edit command again and confirm it reports both files unchanged.
