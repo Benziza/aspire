@@ -75,10 +75,9 @@ jobs:
             '{include: [
               range(1; $runners + 1) as $index |
               [
-                "WITHURLS-CONTROL",
-                "WITHURLS-WAIT-CLEANUP",
-                "WITHURLS-NO-MONITOR",
-                "WITHURLS-WAIT-CLEANUP-NO-MONITOR"
+                "BUNDLED-CONTROL",
+                "CUSTOM-STOCK",
+                "CUSTOM-START-TIME-GUARD"
               ][] as $arm |
               {
                 os: "windows-latest",
@@ -88,9 +87,84 @@ jobs:
             ]}')
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
-          TOTAL=$((RUNNERS * 4))
-          echo "Generated matrix: $TOTAL Windows runners across 4 concurrent arms"
+          TOTAL=$((RUNNERS * 3))
+          echo "Generated matrix: $TOTAL Windows runners across 3 concurrent arms"
           echo "Each arm runs one test process on a fresh runner"
+
+  build_dcp_experiment:
+    name: Build DCP experiment binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout DCP v0.26.4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: microsoft/dcp
+          ref: v0.26.4
+          path: dcp
+
+      - name: Build stock and guarded Windows binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dcp
+          make generate-grpc
+          mkdir -p ../dcp-experiment/stock ../dcp-experiment/start-time-guard
+
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+            go build -o ../dcp-experiment/stock/dcp.exe ./cmd/dcp
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("pkg/process/process_util.go")
+          source = path.read_text()
+          needle = '''\
+          \t\tnextPid := Uint32_ToPidT(uint32(current.Pid))
+          \t\ttree = append(tree, ProcessHandle{nextPid, processIdentityTime(current)})
+
+          \t\tchildren, childrenErr := current.Children()
+          \t\tif childrenErr != nil {
+          \t\t\t// If we fail to get the children, assume there are no children.
+          \t\t\tchildren = []*ps.Process{}
+          \t\t}
+
+          \t\tnext = append(next, children...)
+          '''
+          replacement = '''\
+          \t\tnextPid := Uint32_ToPidT(uint32(current.Pid))
+          \t\tcurrentIdentityTime := processIdentityTime(current)
+          \t\ttree = append(tree, ProcessHandle{nextPid, currentIdentityTime})
+
+          \t\tchildren, childrenErr := current.Children()
+          \t\tif childrenErr != nil {
+          \t\t\t// If we fail to get the children, assume there are no children.
+          \t\t\tchildren = []*ps.Process{}
+          \t\t}
+
+          \t\tfor _, child := range children {
+          \t\t\t// Windows can retain a dead process's parent PID after that PID is reused.
+          \t\t\t// A real child cannot have started before its parent.
+          \t\t\tif processIdentityTime(child).Before(currentIdentityTime) {
+          \t\t\t\tcontinue
+          \t\t\t}
+          \t\t\tnext = append(next, child)
+          \t\t}
+          '''
+          if source.count(needle) != 1:
+              raise SystemExit("Expected one process-tree traversal block")
+          path.write_text(source.replace(needle, replacement))
+          PY
+          gofmt -w pkg/process/process_util.go
+
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+            go build -o ../dcp-experiment/start-time-guard/dcp.exe ./cmd/dcp
+
+      - name: Upload DCP experiment binaries
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dcp-experiment
+          path: dcp-experiment/
+          if-no-files-found: error
 
   build_cli_e2e_image:
     name: Build CLI E2E Docker image
@@ -100,11 +174,12 @@ jobs:
 
   reproduce:
     name: "${{ matrix.arm }} / ${{ matrix.os }} #${{ matrix.index }}"
-    needs: [setup, build_cli_e2e_image]
+    needs: [setup, build_dcp_experiment, build_cli_e2e_image]
     if: >-
       ${{
         !cancelled() &&
         needs.setup.result == 'success' &&
+        needs.build_dcp_experiment.result == 'success' &&
         (needs.build_cli_e2e_image.result == 'success' || needs.build_cli_e2e_image.result == 'skipped')
       }}
     runs-on: ${{ matrix.os }}
@@ -217,6 +292,13 @@ jobs:
         if: runner.os == 'Windows'
         run: ${{ env.DOTNET_SCRIPT }} build-server shutdown
 
+      - name: Download DCP experiment binaries
+        if: runner.os == 'Windows'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dcp-experiment
+          path: ${{ github.workspace }}/dcp-experiment
+
       - name: Run test iterations (Linux/macOS)
         if: runner.os != 'Windows'
         env:
@@ -297,6 +379,7 @@ jobs:
           SkipDefaultTestFilters: true
           # Match the regular test workflow's mitigation for resource-constrained Windows runners.
           UseSharedCompilation: false
+          ASPIRE_TEST_ACTIVITY_FILE: ${{ github.workspace }}/test-activity.log
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           $pass = 0
@@ -312,23 +395,17 @@ jobs:
 
           $iterations = 1
           switch ($env:EXPERIMENT_ARM) {
-            "WITHURLS-CONTROL" {
+            "BUNDLED-CONTROL" {
               $filterArgs = @("--filter-class", "*.WithUrlsTests")
               $expectedTests = 35
             }
-            "WITHURLS-WAIT-CLEANUP" {
-              $env:DcpPublisher__WaitForResourceCleanup = "true"
+            "CUSTOM-STOCK" {
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\stock\dcp.exe"
               $filterArgs = @("--filter-class", "*.WithUrlsTests")
               $expectedTests = 35
             }
-            "WITHURLS-NO-MONITOR" {
-              $env:DCP_DISABLE_MONITOR_PROCESS = "1"
-              $filterArgs = @("--filter-class", "*.WithUrlsTests")
-              $expectedTests = 35
-            }
-            "WITHURLS-WAIT-CLEANUP-NO-MONITOR" {
-              $env:DcpPublisher__WaitForResourceCleanup = "true"
-              $env:DCP_DISABLE_MONITOR_PROCESS = "1"
+            "CUSTOM-START-TIME-GUARD" {
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\start-time-guard\dcp.exe"
               $filterArgs = @("--filter-class", "*.WithUrlsTests")
               $expectedTests = 35
             }
@@ -346,6 +423,7 @@ jobs:
 
             # Cleanup between iterations
             Remove-Item -Recurse -Force "${{ github.workspace }}/testresults" -ErrorAction SilentlyContinue
+            Remove-Item $env:ASPIRE_TEST_ACTIVITY_FILE -ErrorAction SilentlyContinue
             Get-Process | Where-Object { $_.ProcessName -match '^dcp' -or $_.ProcessName -eq 'dotnet' } | Stop-Process -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 1
 
@@ -495,10 +573,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | WithUrlsTests DCP teardown mechanism A/B with out-of-band resource telemetry |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | WithUrlsTests process-tree descendant enumeration A/B with out-of-band resource telemetry |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | Control; synchronous resource cleanup; monitor processes disabled; both changes |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | Bundled DCP; custom stock DCP; custom DCP that rejects descendants older than their alleged parent |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then

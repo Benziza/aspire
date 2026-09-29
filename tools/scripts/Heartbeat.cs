@@ -154,6 +154,19 @@ try
             parts.Add($"DCP: {ex.Message}");
         }
 
+        try
+        {
+            var testActivity = GetTestActivity();
+            if (testActivity is not null)
+            {
+                parts.Add($"Test: {testActivity}");
+            }
+        }
+        catch (Exception ex)
+        {
+            parts.Add($"Test: {ex.Message}");
+        }
+
         // Top processes
         try
         {
@@ -289,6 +302,17 @@ async Task PublishHeartbeatAsync(string heartbeatLine)
     {
         Console.Error.WriteLine($"[{DateTime.UtcNow:O}] HEARTBEAT | Check update failed: {ex.Message}");
     }
+}
+
+string? GetTestActivity()
+{
+    var activityFile = Environment.GetEnvironmentVariable("ASPIRE_TEST_ACTIVITY_FILE");
+    if (string.IsNullOrWhiteSpace(activityFile) || !File.Exists(activityFile))
+    {
+        return null;
+    }
+
+    return string.Join(" || ", File.ReadLines(activityFile).TakeLast(4));
 }
 
 string GetCpuUsage(ref long prevIdle, ref long prevTotal)
