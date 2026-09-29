@@ -28,7 +28,7 @@ env:
   #   --filter-method "*.TestMethodName"
   #   --filter-class "*.TestClassName"
   #   --filter-method "*.Test1" --filter-method "*.Test2"
-  TEST_FILTER: '--filter-method "*.WithUrlForEndpointAddTurnsRelativeUrlIntoAbsoluteUrl" --filter-method "*.ProjectLaunchProfileRelativeLaunchUrlIsAddedToEndpointUrl"'
+  TEST_FILTER: '--filter-method "*.WithUrlForEndpointAddTurnsRelativeUrlIntoAbsoluteUrl" --filter-method "*.ProjectLaunchProfileAbsoluteLaunchUrlIsUsedAsEndpointUrl"'
 
   # Target operating systems (comma-separated)
   # Options: ubuntu-latest, windows-latest, macos-latest
