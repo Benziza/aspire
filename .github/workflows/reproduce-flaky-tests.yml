@@ -12,7 +12,16 @@
 name: Reproduce Flaky Tests
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      runners_per_arm:
+        description: Number of fresh Windows runners for each experiment arm
+        required: false
+        default: "36"
+
+permissions:
+  contents: read
+  checks: write
 
 # ============================================================
 # CONFIGURATION — Edit these values to customize the test run
@@ -23,7 +32,7 @@ env:
   TEST_PROJECT: "Hosting"
 
   # The arms run concurrently so they share runner-pool and time-of-day effects.
-  RUNNERS_PER_ARM: "72"
+  RUNNERS_PER_ARM: ${{ inputs.runners_per_arm }}
 
 jobs:
 
@@ -65,7 +74,7 @@ jobs:
             --argjson runners "$RUNNERS" \
             '{include: [
               range(1; $runners + 1) as $index |
-              ["H5-FULL", "H5-WITHURLS", "H5-NOWITHURLS"][] as $arm |
+              ["WITHURLS", "DASHBOARD-ONLY", "PROJECT-DASHBOARD", "PROJECT-NO-DASHBOARD"][] as $arm |
               {
                 os: "windows-latest",
                 index: $index,
@@ -74,8 +83,8 @@ jobs:
             ]}')
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
-          TOTAL=$((RUNNERS * 3))
-          echo "Generated matrix: $TOTAL Windows runners across 3 concurrent arms"
+          TOTAL=$((RUNNERS * 4))
+          echo "Generated matrix: $TOTAL Windows runners across 4 concurrent arms"
           echo "Each arm runs one test process on a fresh runner"
 
   build_cli_e2e_image:
@@ -94,7 +103,7 @@ jobs:
         (needs.build_cli_e2e_image.result == 'success' || needs.build_cli_e2e_image.result == 'skipped')
       }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
@@ -283,9 +292,12 @@ jobs:
           SkipDefaultTestFilters: true
           # Match the regular test workflow's mitigation for resource-constrained Windows runners.
           UseSharedCompilation: false
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           $pass = 0
           $fail = 0
+          $watchdogToken = $env:GITHUB_TOKEN
+          Remove-Item Env:GITHUB_TOKEN
           $dotnetPath = Get-Content "${{ github.workspace }}\artifacts\toolset\sdk.txt"
           $dotnetExe = Join-Path $dotnetPath "dotnet.exe"
 
@@ -295,20 +307,21 @@ jobs:
 
           $iterations = 1
           switch ($env:EXPERIMENT_ARM) {
-            "H5-FULL" {
-              $filterArgs = @("--filter-trait", "Partition=5")
-              $expectedTests = 534
-            }
-            "H5-WITHURLS" {
+            "WITHURLS" {
               $filterArgs = @("--filter-class", "*.WithUrlsTests")
               $expectedTests = 35
             }
-            "H5-NOWITHURLS" {
-              $filterArgs = @(
-                "--filter-trait", "Partition=5",
-                "--filter-not-class", "*.WithUrlsTests"
-              )
-              $expectedTests = 499
+            "DASHBOARD-ONLY" {
+              $filterArgs = @("--filter-method", "*.DashboardOnlyLifecycleCycle")
+              $expectedTests = 27
+            }
+            "PROJECT-DASHBOARD" {
+              $filterArgs = @("--filter-method", "*.ProjectLifecycleCycleWithDashboard")
+              $expectedTests = 27
+            }
+            "PROJECT-NO-DASHBOARD" {
+              $filterArgs = @("--filter-method", "*.ProjectLifecycleCycleWithoutDashboard")
+              $expectedTests = 27
             }
             default {
               throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
@@ -329,9 +342,47 @@ jobs:
 
             # Run test (capture output for zero-test detection)
             $iterOutput = Join-Path "${{ github.workspace }}" "iter-output-$i.log"
-            $heartbeatProcess = Start-Process -FilePath "dotnet" `
-              -ArgumentList "${{ github.workspace }}\tools\scripts\Heartbeat.cs 60" `
-              -NoNewWindow -PassThru
+            $watchdogName = "runner-watchdog/${{ github.run_id }}/$env:EXPERIMENT_ARM/${{ matrix.index }}"
+            $watchdogId = $null
+
+            try {
+              $headers = @{
+                Accept = "application/vnd.github+json"
+                Authorization = "Bearer $watchdogToken"
+                "X-GitHub-Api-Version" = "2022-11-28"
+              }
+              $createPayload = @{
+                name = $watchdogName
+                head_sha = "${{ github.sha }}"
+                status = "in_progress"
+                started_at = (Get-Date).ToUniversalTime().ToString("o")
+                output = @{
+                  title = "[automated] Resource watchdog: $env:EXPERIMENT_ARM/${{ matrix.index }}"
+                  summary = "[automated] Waiting for the first resource sample."
+                }
+              } | ConvertTo-Json -Depth 4
+              $watchdog = Invoke-RestMethod `
+                -Method Post `
+                -Uri "${{ github.api_url }}/repos/${{ github.repository }}/check-runs" `
+                -Headers $headers `
+                -Body $createPayload `
+                -ContentType "application/json"
+              $watchdogId = $watchdog.id
+              $env:HEARTBEAT_CHECK_RUN_ID = "$watchdogId"
+              $env:HEARTBEAT_CHECK_NAME = "$env:EXPERIMENT_ARM/${{ matrix.index }}"
+            }
+            catch {
+              Write-Host "::warning::Unable to create the out-of-band watchdog check: $_"
+            }
+
+            $heartbeatStartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+            $heartbeatStartInfo.FileName = "dotnet"
+            $heartbeatStartInfo.ArgumentList.Add("${{ github.workspace }}\tools\scripts\Heartbeat.cs")
+            $heartbeatStartInfo.ArgumentList.Add("30")
+            $heartbeatStartInfo.UseShellExecute = $false
+            $heartbeatStartInfo.CreateNoWindow = $true
+            $heartbeatStartInfo.Environment["GITHUB_TOKEN"] = $watchdogToken
+            $heartbeatProcess = [System.Diagnostics.Process]::Start($heartbeatStartInfo)
 
             try {
               & $dotnetExe test --project "${{ env.TEST_PROJECT_PATH }}" `
@@ -343,7 +394,7 @@ jobs:
                 --hangdump `
                 --hangdump-type none `
                 --hangdump-timeout 4m `
-                --timeout 8m `
+                --timeout 12m `
                 --results-directory "${{ github.workspace }}/testresults" `
                 @filterArgs `
                 --filter-not-trait "quarantined=true" `
@@ -353,6 +404,26 @@ jobs:
             finally {
               if ($heartbeatProcess -and !$heartbeatProcess.HasExited) {
                 $heartbeatProcess | Stop-Process -Force -ErrorAction SilentlyContinue
+              }
+
+              if ($watchdogId) {
+                try {
+                  $conclusion = if ($result -eq 0) { "neutral" } else { "failure" }
+                  $completePayload = @{
+                    status = "completed"
+                    conclusion = $conclusion
+                    completed_at = (Get-Date).ToUniversalTime().ToString("o")
+                  } | ConvertTo-Json
+                  Invoke-RestMethod `
+                    -Method Patch `
+                    -Uri "${{ github.api_url }}/repos/${{ github.repository }}/check-runs/$watchdogId" `
+                    -Headers $headers `
+                    -Body $completePayload `
+                    -ContentType "application/json" | Out-Null
+                }
+                catch {
+                  Write-Host "::warning::Unable to complete the watchdog check: $_"
+                }
               }
             }
 
@@ -415,10 +486,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | Concurrent Hosting-5 WithUrlsTests partition split |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | DCP lifecycle mechanism isolation with out-of-band resource telemetry |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | Full Partition 5; WithUrlsTests; Partition 5 without WithUrlsTests |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | WithUrlsTests; dashboard-only cycles; project cycles with dashboard; project cycles without dashboard |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
@@ -429,6 +500,25 @@ jobs:
           else
             echo "### ⚠️ Reproduce job was ${{ needs.reproduce.result }}" >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Close orphaned watchdog checks
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          prefix="runner-watchdog/${{ github.run_id }}/"
+          gh api --paginate \
+            "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs?per_page=100" \
+            --jq ".check_runs[] | select(.name | startswith(\"$prefix\")) | select(.status != \"completed\") | .id" |
+          while read -r check_id; do
+            [ -z "$check_id" ] && continue
+            gh api --method PATCH \
+              "repos/${{ github.repository }}/check-runs/$check_id" \
+              -f status=completed \
+              -f conclusion=neutral \
+              -f completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          done
 
       - name: Fail if reproduce did not succeed
         if: ${{ needs.reproduce.result != 'success' }}

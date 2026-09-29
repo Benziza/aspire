@@ -9,7 +9,10 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
 
 var os = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "Linux" :
          RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "macOS" :
@@ -17,12 +20,19 @@ var os = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "Linux" :
          throw new NotSupportedException("Unsupported OS platform");
 
 const int defaultIntervalSeconds = 60;
+const int JobObjectBasicAccountingInformation = 1;
+const int JobObjectExtendedLimitInformation = 9;
+const int ProcessBasicInformation = 0;
+const uint GrGdiObjects = 0;
+const uint GrUserObjects = 1;
 var intervalSeconds = args.Length > 0 &&
                       int.TryParse(args[0], out var parsed) &&
                       parsed >= 1
     ? parsed
     : defaultIntervalSeconds;
 var cts = new CancellationTokenSource();
+using var heartbeatClient = CreateHeartbeatClient();
+var recentHeartbeatSamples = new Queue<string>();
 
 Console.CancelKeyPress += (_, e) =>
 {
@@ -70,6 +80,27 @@ try
         catch (Exception ex)
         {
             parts.Add($"Mem: {ex.Message}");
+        }
+
+        if (os == "Windows")
+        {
+            try
+            {
+                parts.Add($"WinSys: {GetWindowsSystemResources()}");
+            }
+            catch (Exception ex)
+            {
+                parts.Add($"WinSys: {ex.Message}");
+            }
+
+            try
+            {
+                parts.Add($"Job: {GetWindowsJobResources()}");
+            }
+            catch (Exception ex)
+            {
+                parts.Add($"Job: {ex.Message}");
+            }
         }
 
         // Disk space
@@ -134,6 +165,27 @@ try
             parts.Add($"Top: {ex.Message}");
         }
 
+        if (os == "Windows")
+        {
+            try
+            {
+                parts.Add($"Ancestry: {GetWindowsProcessAncestry(windowsProcesses)}");
+            }
+            catch (Exception ex)
+            {
+                parts.Add($"Ancestry: {ex.Message}");
+            }
+
+            try
+            {
+                parts.Add($"GUI: {GetWindowsGuiResources(windowsProcesses)}");
+            }
+            catch (Exception ex)
+            {
+                parts.Add($"GUI: {ex.Message}");
+            }
+        }
+
         // Dispose shared Windows process handles
         if (windowsProcesses is not null)
         {
@@ -143,8 +195,10 @@ try
             }
         }
 
-        Console.WriteLine(string.Join(" | ", parts));
+        var heartbeatLine = string.Join(" | ", parts);
+        Console.WriteLine(heartbeatLine);
         Console.Out.Flush(); // Ensure output appears immediately in CI logs
+        await PublishHeartbeatAsync(heartbeatLine);
 
         try
         {
@@ -163,6 +217,79 @@ catch (OperationCanceledException)
 
 Console.WriteLine($"[{DateTime.UtcNow:O}] HEARTBEAT | Monitor stopped");
 Console.Out.Flush();
+
+HttpClient? CreateHeartbeatClient()
+{
+    var checkRunId = Environment.GetEnvironmentVariable("HEARTBEAT_CHECK_RUN_ID");
+    var repository = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY");
+    var token = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+
+    if (string.IsNullOrWhiteSpace(checkRunId) ||
+        string.IsNullOrWhiteSpace(repository) ||
+        string.IsNullOrWhiteSpace(token))
+    {
+        return null;
+    }
+
+    var client = new HttpClient
+    {
+        BaseAddress = new Uri(Environment.GetEnvironmentVariable("GITHUB_API_URL") ?? "https://api.github.com"),
+        Timeout = TimeSpan.FromSeconds(10)
+    };
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("aspire-heartbeat");
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    return client;
+}
+
+async Task PublishHeartbeatAsync(string heartbeatLine)
+{
+    if (heartbeatClient is null)
+    {
+        return;
+    }
+
+    recentHeartbeatSamples.Enqueue(heartbeatLine);
+    while (recentHeartbeatSamples.Count > 8)
+    {
+        recentHeartbeatSamples.Dequeue();
+    }
+
+    var checkRunId = Environment.GetEnvironmentVariable("HEARTBEAT_CHECK_RUN_ID");
+    var repository = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY");
+    var checkName = Environment.GetEnvironmentVariable("HEARTBEAT_CHECK_NAME") ?? "runner";
+    var summary = new StringBuilder()
+        .AppendLine("[automated] Latest resource samples from the runner.")
+        .AppendLine()
+        .AppendLine("```text")
+        .AppendLine(string.Join(Environment.NewLine, recentHeartbeatSamples))
+        .AppendLine("```")
+        .ToString();
+
+    var title = JsonEncodedText.Encode($"[automated] Resource watchdog: {checkName}");
+    var encodedSummary = JsonEncodedText.Encode(summary);
+    var payload = $"{{\"output\":{{\"title\":\"{title}\",\"summary\":\"{encodedSummary}\"}}}}";
+
+    try
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/repos/{repository}/check-runs/{checkRunId}")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json")
+        };
+        using var response = await heartbeatClient.SendAsync(request, cts.Token);
+        response.EnsureSuccessStatusCode();
+    }
+    catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+    {
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"[{DateTime.UtcNow:O}] HEARTBEAT | Check update failed: {ex.Message}");
+    }
+}
 
 string GetCpuUsage(ref long prevIdle, ref long prevTotal)
 {
@@ -351,6 +478,246 @@ string GetMemoryUsage()
     return $"{gcUsedMb:F0} MB (process)";
 }
 
+string GetWindowsSystemResources()
+{
+    var info = new PERFORMANCE_INFORMATION
+    {
+        cb = (uint)Marshal.SizeOf<PERFORMANCE_INFORMATION>()
+    };
+
+    if (!NativeMethods.GetPerformanceInfo(ref info, info.cb))
+    {
+        return $"GetPerformanceInfo failed (error {Marshal.GetLastWin32Error()})";
+    }
+
+    var pageSize = info.PageSize.ToUInt64();
+    var commitBytes = info.CommitTotal.ToUInt64() * pageSize;
+    var commitLimitBytes = info.CommitLimit.ToUInt64() * pageSize;
+    var commitPeakBytes = info.CommitPeak.ToUInt64() * pageSize;
+    var kernelPagedBytes = info.KernelPaged.ToUInt64() * pageSize;
+    var kernelNonPagedBytes = info.KernelNonpaged.ToUInt64() * pageSize;
+    var commitPercent = commitLimitBytes > 0 ? 100.0 * commitBytes / commitLimitBytes : 0;
+
+    return $"commit={FormatGb(commitBytes)}/{FormatGb(commitLimitBytes)}({commitPercent:F0}%), " +
+           $"peak={FormatGb(commitPeakBytes)}, paged={FormatMb(kernelPagedBytes)}, " +
+           $"nonpaged={FormatMb(kernelNonPagedBytes)}, handles={info.HandleCount}, " +
+           $"processes={info.ProcessCount}, threads={info.ThreadCount}";
+}
+
+string GetWindowsJobResources()
+{
+    using var currentProcess = Process.GetCurrentProcess();
+    if (!NativeMethods.IsProcessInJob(currentProcess.Handle, IntPtr.Zero, out var inJob))
+    {
+        return $"IsProcessInJob failed (error {Marshal.GetLastWin32Error()})";
+    }
+
+    if (!inJob)
+    {
+        return "none";
+    }
+
+    var limits = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
+    if (!NativeMethods.QueryInformationJobObjectExtended(
+        IntPtr.Zero,
+        JobObjectExtendedLimitInformation,
+        ref limits,
+        (uint)Marshal.SizeOf<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>(),
+        out _))
+    {
+        return $"limit query failed (error {Marshal.GetLastWin32Error()})";
+    }
+
+    var accounting = new JOBOBJECT_BASIC_ACCOUNTING_INFORMATION();
+    if (!NativeMethods.QueryInformationJobObjectAccounting(
+        IntPtr.Zero,
+        JobObjectBasicAccountingInformation,
+        ref accounting,
+        (uint)Marshal.SizeOf<JOBOBJECT_BASIC_ACCOUNTING_INFORMATION>(),
+        out _))
+    {
+        return $"accounting query failed (error {Marshal.GetLastWin32Error()})";
+    }
+
+    return $"active={accounting.ActiveProcesses}, total={accounting.TotalProcesses}, " +
+           $"terminated={accounting.TotalTerminatedProcesses}, flags=0x{limits.BasicLimitInformation.LimitFlags:X}, " +
+           $"processLimit={FormatOptionalBytes(limits.ProcessMemoryLimit)}, " +
+           $"jobLimit={FormatOptionalBytes(limits.JobMemoryLimit)}, " +
+           $"peakProcess={FormatOptionalBytes(limits.PeakProcessMemoryUsed)}, " +
+           $"peakJob={FormatOptionalBytes(limits.PeakJobMemoryUsed)}";
+}
+
+string GetWindowsGuiResources(Process[]? sharedProcesses)
+{
+    var processes = sharedProcesses ?? Process.GetProcesses();
+    var shouldDispose = sharedProcesses is null;
+    var trackedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Aspire.Hosting.Tests",
+        "conhost",
+        "dcp",
+        "dotnet",
+        "pwsh",
+        "Runner.Worker",
+        "TestProject.ServiceA",
+        "WindowsTerminal"
+    };
+    var totals = new Dictionary<string, (int Count, int Handles, int Threads, uint Gdi, uint User)>(StringComparer.OrdinalIgnoreCase);
+
+    try
+    {
+        foreach (var process in processes)
+        {
+            try
+            {
+                if (!trackedNames.Contains(process.ProcessName))
+                {
+                    continue;
+                }
+
+                var gdi = NativeMethods.GetGuiResources(process.Handle, GrGdiObjects);
+                var user = NativeMethods.GetGuiResources(process.Handle, GrUserObjects);
+                totals.TryGetValue(process.ProcessName, out var total);
+                totals[process.ProcessName] = (
+                    total.Count + 1,
+                    total.Handles + process.HandleCount,
+                    total.Threads + process.Threads.Count,
+                    total.Gdi + gdi,
+                    total.User + user);
+            }
+            catch
+            {
+            }
+        }
+    }
+    finally
+    {
+        if (shouldDispose)
+        {
+            foreach (var process in processes)
+            {
+                try { process.Dispose(); } catch { }
+            }
+        }
+    }
+
+    return totals.Count == 0
+        ? "none"
+        : string.Join(", ", totals.OrderBy(entry => entry.Key).Select(entry =>
+            $"{entry.Key}({entry.Value.Count}):handles={entry.Value.Handles}/threads={entry.Value.Threads}/" +
+            $"gdi={entry.Value.Gdi}/user={entry.Value.User}"));
+}
+
+string GetWindowsProcessAncestry(Process[]? sharedProcesses)
+{
+    var processes = sharedProcesses ?? Process.GetProcesses();
+    var shouldDispose = sharedProcesses is null;
+    var nodes = new Dictionary<int, WindowsProcessNode>();
+
+    try
+    {
+        foreach (var process in processes)
+        {
+            try
+            {
+                if (NativeMethods.NtQueryInformationProcess(
+                    process.Handle,
+                    ProcessBasicInformation,
+                    out var basicInformation,
+                    Marshal.SizeOf<PROCESS_BASIC_INFORMATION>(),
+                    out _) != 0)
+                {
+                    continue;
+                }
+
+                nodes[process.Id] = new(
+                    process.Id,
+                    process.ProcessName,
+                    process.StartTime.ToUniversalTime(),
+                    basicInformation.InheritedFromUniqueProcessId.ToInt32());
+            }
+            catch
+            {
+            }
+        }
+    }
+    finally
+    {
+        if (shouldDispose)
+        {
+            foreach (var process in processes)
+            {
+                try { process.Dispose(); } catch { }
+            }
+        }
+    }
+
+    var chains = new List<string>();
+    if (nodes.TryGetValue(Environment.ProcessId, out var heartbeat))
+    {
+        chains.Add($"heartbeat={FormatProcessChain(heartbeat, nodes)}");
+    }
+
+    foreach (var listener in nodes.Values
+        .Where(node => node.Name.Equals("Runner.Listener", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(node => node.Pid))
+    {
+        chains.Add($"listener={FormatProcessChain(listener, nodes)}");
+    }
+
+    var reusedParentLinks = nodes.Values
+        .Where(child =>
+            nodes.TryGetValue(child.ParentPid, out var parent) &&
+            parent.StartTimeUtc > child.StartTimeUtc)
+        .OrderBy(child => child.Name)
+        .Take(8)
+        .Select(child =>
+        {
+            var parent = nodes[child.ParentPid];
+            return $"{FormatProcessNode(child)}<-NEWER-{FormatProcessNode(parent)}";
+        })
+        .ToArray();
+
+    var chainSummary = chains.Count == 0 ? "runner chain unavailable" : string.Join("; ", chains);
+    var reusedSummary = reusedParentLinks.Length == 0 ? "none" : string.Join(",", reusedParentLinks);
+    return $"{chainSummary}; reused-parent-links={reusedSummary}";
+}
+
+static string FormatProcessChain(
+    WindowsProcessNode start,
+    IReadOnlyDictionary<int, WindowsProcessNode> nodes)
+{
+    var chain = new List<string>();
+    var seen = new HashSet<int>();
+    var current = start;
+
+    while (seen.Add(current.Pid) && chain.Count < 10)
+    {
+        chain.Add(FormatProcessNode(current));
+        var parentPid = current.ParentPid;
+        if (!nodes.TryGetValue(parentPid, out current))
+        {
+            if (parentPid > 0)
+            {
+                chain.Add($"missing({parentPid})");
+            }
+            break;
+        }
+    }
+
+    return string.Join("<-", chain);
+}
+
+static string FormatProcessNode(WindowsProcessNode node) =>
+    $"{node.Name}({node.Pid}@{node.StartTimeUtc:HH:mm:ss.fff},ppid={node.ParentPid})";
+
+static string FormatGb(ulong bytes) => $"{bytes / 1024.0 / 1024.0 / 1024.0:F1}GB";
+
+static string FormatMb(ulong bytes) => $"{bytes / 1024.0 / 1024.0:F0}MB";
+
+static string FormatOptionalBytes(UIntPtr bytes) =>
+    bytes == UIntPtr.Zero ? "none" : FormatMb(bytes.ToUInt64());
+
 string GetNetworkConnections()
 {
     var (success, output, stderr) = RunCommand("netstat", "-an");
@@ -418,7 +785,7 @@ string GetDockerStats()
 
 string GetDcpProcesses(Process[]? sharedProcesses = null)
 {
-    var dcpProcesses = new List<(string Name, int Pid, double Cpu, double MemMb)>();
+    var dcpProcesses = new List<(string Name, int Pid, double Cpu, double MemMb, int Handles, int Threads)>();
 
     if (os == "Windows")
     {
@@ -446,7 +813,7 @@ string GetDcpProcesses(Process[]? sharedProcesses = null)
                     }
 
                     memMb = proc.WorkingSet64 / 1024.0 / 1024.0;
-                    dcpProcesses.Add((proc.ProcessName, proc.Id, cpu, memMb));
+                    dcpProcesses.Add((proc.ProcessName, proc.Id, cpu, memMb, proc.HandleCount, proc.Threads.Count));
                 }
                 catch { /* process may have exited or access may be denied */ }
             }
@@ -486,7 +853,7 @@ string GetDcpProcesses(Process[]? sharedProcesses = null)
                             var name = Path.GetFileName(command);
                             if (name.StartsWith("dcp", StringComparison.OrdinalIgnoreCase))
                             {
-                                dcpProcesses.Add((name, pid, cpu, rssKb / 1024.0));
+                                dcpProcesses.Add((name, pid, cpu, rssKb / 1024.0, -1, -1));
                             }
                         }
                     }
@@ -506,7 +873,10 @@ string GetDcpProcesses(Process[]? sharedProcesses = null)
 
     var totalCpu = dcpProcesses.Sum(p => p.Cpu);
     var totalMem = dcpProcesses.Sum(p => p.MemMb);
-    var processInfo = string.Join(", ", dcpProcesses.Select(p => $"{p.Name}({p.Pid}):{p.Cpu:F1}%/{p.MemMb:F0}MB"));
+    var processInfo = string.Join(", ", dcpProcesses.Select(p =>
+        p.Handles >= 0
+            ? $"{p.Name}({p.Pid}):{p.Cpu:F1}%/{p.MemMb:F0}MB/{p.Handles}h/{p.Threads}t"
+            : $"{p.Name}({p.Pid}):{p.Cpu:F1}%/{p.MemMb:F0}MB"));
 
     return $"{dcpProcesses.Count} procs ({totalCpu:F1}%/{totalMem:F0}MB) [{processInfo}]";
 }
@@ -800,6 +1170,91 @@ struct MEMORYSTATUSEX
     public ulong ullAvailExtendedVirtual;
 }
 
+[StructLayout(LayoutKind.Sequential)]
+struct PERFORMANCE_INFORMATION
+{
+    public uint cb;
+    public UIntPtr CommitTotal;
+    public UIntPtr CommitLimit;
+    public UIntPtr CommitPeak;
+    public UIntPtr PhysicalTotal;
+    public UIntPtr PhysicalAvailable;
+    public UIntPtr SystemCache;
+    public UIntPtr KernelTotal;
+    public UIntPtr KernelPaged;
+    public UIntPtr KernelNonpaged;
+    public UIntPtr PageSize;
+    public uint HandleCount;
+    public uint ProcessCount;
+    public uint ThreadCount;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+struct IO_COUNTERS
+{
+    public ulong ReadOperationCount;
+    public ulong WriteOperationCount;
+    public ulong OtherOperationCount;
+    public ulong ReadTransferCount;
+    public ulong WriteTransferCount;
+    public ulong OtherTransferCount;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+struct JOBOBJECT_BASIC_LIMIT_INFORMATION
+{
+    public long PerProcessUserTimeLimit;
+    public long PerJobUserTimeLimit;
+    public uint LimitFlags;
+    public UIntPtr MinimumWorkingSetSize;
+    public UIntPtr MaximumWorkingSetSize;
+    public uint ActiveProcessLimit;
+    public UIntPtr Affinity;
+    public uint PriorityClass;
+    public uint SchedulingClass;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+{
+    public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
+    public IO_COUNTERS IoInfo;
+    public UIntPtr ProcessMemoryLimit;
+    public UIntPtr JobMemoryLimit;
+    public UIntPtr PeakProcessMemoryUsed;
+    public UIntPtr PeakJobMemoryUsed;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+struct JOBOBJECT_BASIC_ACCOUNTING_INFORMATION
+{
+    public long TotalUserTime;
+    public long TotalKernelTime;
+    public long ThisPeriodTotalUserTime;
+    public long ThisPeriodTotalKernelTime;
+    public uint TotalPageFaultCount;
+    public uint TotalProcesses;
+    public uint ActiveProcesses;
+    public uint TotalTerminatedProcesses;
+}
+
+readonly record struct WindowsProcessNode(
+    int Pid,
+    string Name,
+    DateTime StartTimeUtc,
+    int ParentPid);
+
+[StructLayout(LayoutKind.Sequential)]
+struct PROCESS_BASIC_INFORMATION
+{
+    public IntPtr Reserved1;
+    public IntPtr PebBaseAddress;
+    public IntPtr Reserved2_0;
+    public IntPtr Reserved2_1;
+    public IntPtr UniqueProcessId;
+    public IntPtr InheritedFromUniqueProcessId;
+}
+
 static partial class NativeMethods
 {
     /// <summary>
@@ -819,5 +1274,48 @@ static partial class NativeMethods
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+    /// <summary>
+    /// Retrieves system-wide commit, kernel-pool, handle, process, and thread counts.
+    /// </summary>
+    [DllImport("psapi.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetPerformanceInfo(ref PERFORMANCE_INFORMATION performanceInformation, uint size);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsProcessInJob(
+        IntPtr processHandle,
+        IntPtr jobHandle,
+        [MarshalAs(UnmanagedType.Bool)] out bool result);
+
+    [DllImport("kernel32.dll", EntryPoint = "QueryInformationJobObject", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool QueryInformationJobObjectExtended(
+        IntPtr jobHandle,
+        int informationClass,
+        ref JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobObjectInformation,
+        uint jobObjectInformationLength,
+        out uint returnLength);
+
+    [DllImport("kernel32.dll", EntryPoint = "QueryInformationJobObject", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool QueryInformationJobObjectAccounting(
+        IntPtr jobHandle,
+        int informationClass,
+        ref JOBOBJECT_BASIC_ACCOUNTING_INFORMATION jobObjectInformation,
+        uint jobObjectInformationLength,
+        out uint returnLength);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetGuiResources(IntPtr processHandle, uint flags);
+
+    [DllImport("ntdll.dll")]
+    public static extern int NtQueryInformationProcess(
+        IntPtr processHandle,
+        int processInformationClass,
+        out PROCESS_BASIC_INFORMATION processInformation,
+        int processInformationLength,
+        out int returnLength);
 #pragma warning restore SYSLIB1054
 }
