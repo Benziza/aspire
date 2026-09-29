@@ -454,6 +454,11 @@ Outside the dock, terminal headers keep a fixed icon slot before the workload ti
 uses a ring with the percentage in its tooltip, not inline text; otherwise the
 resource page shows its resource icon, and other surfaces use a terminal icon.
 Error and warning progress retain their accessible labels and theme colors.
+Working directories shorten in the middle when space is limited; UNC paths keep
+their server and share together or show no path if even the root cannot fit.
+The terminal's Light/Dark palette is an explicit browser preference, independent
+of the Dashboard theme. It defaults to Dark and can be changed in the terminal
+footer; Dashboard chrome still follows Settings theme changes.
 
 Dock tabs use the titles supplied when the terminals are created, not live workload
 titles. The dock does not show a separate workload title, icon, progress, or working

@@ -10,10 +10,12 @@ export function compactPath(path, fits) {
     }
 
     // Preserve roots and separator runs, e.g. /home/user/src/, C:\work\src,
-    // and \\server\share\src. A backslash in a POSIX path such as /home/a\b/src
-    // is part of the name, not a separator.
+    // and \\server\share\src. The UNC server and share belong to the root;
+    // \\server\…\src would identify a different location. A backslash in a
+    // POSIX path such as /home/a\b/src is part of the name, not a separator.
     const windows = /^[a-z]:[\\/]|^\\\\/i.test(path) || (!path.includes("/") && path.includes("\\"));
-    const root = path.match(windows ? /^(?:[a-z]:[\\/]+|[\\/]+)/i : /^\/+/)?.[0] ?? "";
+    const uncRoot = windows ? path.match(/^\\\\[^\\/]+[\\/]+[^\\/]+[\\/]*/u)?.[0] : null;
+    const root = uncRoot ?? path.match(windows ? /^(?:[a-z]:[\\/]+|[\\/]+)/i : /^\/+/)?.[0] ?? "";
     const segments = path.slice(root.length).match(windows ? /[^\\/]+[\\/]*/gu : /[^/]+\/*/gu) ?? [];
     const separator = windows ? path.match(/[\\/]/)?.[0] ?? "\\" : "/";
     let left = Math.floor((segments.length - 1) / 2);
@@ -32,7 +34,7 @@ export function compactPath(path, fits) {
 
     // A single name can itself exceed the available space. Omit it entirely
     // rather than showing a misleading fragment of that name.
-    for (const candidate of [root + ellipsis, ellipsis, ""]) {
+    for (const candidate of uncRoot ? [root + ellipsis, ""] : [root + ellipsis, ellipsis, ""]) {
         if (fits(candidate)) {
             return candidate;
         }

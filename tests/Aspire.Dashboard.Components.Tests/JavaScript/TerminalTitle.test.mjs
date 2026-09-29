@@ -19,12 +19,22 @@ test("middle omissions preserve whole leading and trailing components", () => {
         ["/home/user/projects/service/src", "/home/user/\u2026/service/src"],
         ["/home/a\\b/projects/service/src", "/home/a\\b/\u2026/service/src"],
         ["C:\\work\\projects\\service\\src", "C:\\work\\\u2026\\service\\src"],
+        ["\\\\server\\share\\projects\\aspire", "\\\\server\\share\\\u2026\\aspire"],
+        ["\\\\server\\share\\projects\\aspire\\", "\\\\server\\share\\\u2026\\aspire\\"],
         ["/home/user/projects/service/src/", "/\u2026/src/"],
         ["/one-very-long-component", "/\u2026"],
         ["one-very-long-component", "\u2026"],
     ]) {
         assert.equal(compactPath(path, value => value.length <= expected.length), expected);
     }
+});
+
+test("UNC paths never abbreviate the server or share", () => {
+    const path = "\\\\server\\share\\projects\\aspire";
+    const root = "\\\\server\\share\\";
+    assert.equal(compactPath(path, value => value.length <= root.length + 1), `${root}\u2026`);
+    assert.equal(compactPath(path, value => value.length < root.length), "");
+    assert.equal(compactPath("\\\\server\\share\\", value => value.length <= root.length - 1), "");
 });
 
 test("every width omits only complete path segments, never partial names", () => {
