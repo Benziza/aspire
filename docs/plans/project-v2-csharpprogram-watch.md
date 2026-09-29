@@ -7,7 +7,7 @@
 Deliver a minimal-but-real vertical slice of Project v2 that establishes the **language integration
 package** as the unit that owns how a language's services are launched (run *and* watch):
 
-1. A new **`Aspire.Hosting.Dotnet`** package — the C# peer of `Aspire.Hosting.Go`,
+1. A new experimental **`Aspire.Hosting.Dotnet`** package — the C# peer of `Aspire.Hosting.Go`,
    `Aspire.Hosting.Python`, and `Aspire.Hosting.JavaScript`. It introduces a new **`ExecutableResource`-based**
    **`DotnetProjectResource`** + **`AddDotnetProject`** (a C# project or file-based app added **by path**,
    polyglot-friendly). The shipped **`CSharpAppResource` + `AddCSharpApp`** in core `Aspire.Hosting` are
@@ -170,7 +170,7 @@ debug launch config for F5).
 ## 5. New & changed types / files
 
 > Resources → the package's own namespace (`Aspire.Hosting.Dotnet`, matching Go/Python);
-> builder extensions → `Aspire.Hosting`. Do **not**
+> builder extensions → `Aspire.Hosting`. All new public surface stays `[Experimental]`. Do **not**
 > hand-edit `api/*.cs`, `*.Capabilities.txt`, `*.ats.txt` (generated).
 
 ### 5.1 `Aspire.Hosting.Dotnet` (new package)
@@ -258,8 +258,8 @@ working through the same generalized helpers unchanged.
 ## 6. Work breakdown — agentic coding sessions
 
 > Sequential unless noted. Every session ends **green**: `./build.sh` clean + targeted tests, and (where
-> applicable) a manual run against a **TypeScript** app host first, then a C# app host.
-> Do **not** hand-edit generated `api/*` files.
+> applicable) a manual run against a **TypeScript** app host first, then a C# app host. Keep all surface
+> `[Experimental]`. Do **not** hand-edit generated `api/*` files.
 
 ### Session 1 — Scaffold `Aspire.Hosting.Dotnet`; add `DotnetProjectResource`/`AddDotnetProject`
 Create the package (mirror `Aspire.Hosting.Go`). Add `DotnetProjectResource` (`: ExecutableResource`) and
@@ -408,7 +408,7 @@ app-host-server case).
 **Extend the Session 1b playground** to exercise `aspire run --watch` (C# services hot-reload; a shared-library
 edit reloads both) from the TS and C# app hosts; CLI e2e for `aspire run --watch` (hex1b /
 `cli-e2e-testing`); hosting tests for the package, watch-server wiring, watch switch, and the traversal/direct
-build; Verify-snapshot updates. Docs for `Aspire.Hosting.Dotnet` + `aspire run --watch`,
+build; Verify-snapshot updates. Docs for experimental `Aspire.Hosting.Dotnet` + `aspire run --watch`,
 limitations (no watch-debug, no partial runs yet). *Depends on: 7 (and 8).*
 
 ### Dependency graph
