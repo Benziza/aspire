@@ -18,7 +18,8 @@ public class DistributedApplicationEntryPointInvokerTests
         Assert.Equal(
             $"The assembly '{assembly.GetName().Name}' is a Microsoft.Testing.Platform test application. " +
             $"Invoking its entry point from {nameof(DistributedApplicationFactory)} would recursively run the test application. " +
-            "Ensure the entry point type belongs to the AppHost executable assembly, or use " +
+            "Test projects should use Microsoft.NET.Sdk instead of Aspire.AppHost.Sdk and reference the AppHost project so the entry point type belongs to the AppHost executable assembly. " +
+            "Alternatively, use " +
             $"{nameof(DistributedApplicationTestingBuilder)}.{nameof(DistributedApplicationTestingBuilder.Create)} to construct the application without invoking an entry point.",
             exception.Message);
     }
