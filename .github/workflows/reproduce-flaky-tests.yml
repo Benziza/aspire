@@ -75,9 +75,7 @@ jobs:
             '{include: [
               range(1; $runners + 1) as $index |
               [
-                "BUNDLED-CONTROL",
-                "CUSTOM-STOCK",
-                "CUSTOM-START-TIME-GUARD"
+                "CUSTOM-START-TIME-GUARD-TRACE"
               ][] as $arm |
               {
                 os: "windows-latest",
@@ -87,8 +85,8 @@ jobs:
             ]}')
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
-          TOTAL=$((RUNNERS * 3))
-          echo "Generated matrix: $TOTAL Windows runners across 3 concurrent arms"
+          TOTAL=$RUNNERS
+          echo "Generated matrix: $TOTAL Windows runners in the guarded trace arm"
           echo "Each arm runs one test process on a fresh runner"
 
   build_dcp_experiment:
@@ -144,7 +142,37 @@ jobs:
           \t\tfor _, child := range children {
           \t\t\t// Windows can retain a dead process's parent PID after that PID is reused.
           \t\t\t// A real child cannot have started before its parent.
-          \t\t\tif processIdentityTime(child).Before(currentIdentityTime) {
+          \t\t\tchildIdentityTime := processIdentityTime(child)
+          \t\t\tif childIdentityTime.Before(currentIdentityTime) {
+          \t\t\t\tif guardLogPath := os.Getenv("DCP_PROCESS_TREE_GUARD_LOG"); guardLogPath != "" {
+          \t\t\t\t\tcurrentName, currentNameErr := current.Name()
+          \t\t\t\t\tif currentNameErr != nil {
+          \t\t\t\t\t\tcurrentName = "<unknown>"
+          \t\t\t\t\t}
+          \t\t\t\t\tchildName, childNameErr := child.Name()
+          \t\t\t\t\tif childNameErr != nil {
+          \t\t\t\t\t\tchildName = "<unknown>"
+          \t\t\t\t\t}
+          \t\t\t\t\tguardLog, guardLogErr := os.OpenFile(guardLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+          \t\t\t\t\tif guardLogErr != nil {
+          \t\t\t\t\t\tfmt.Fprintf(os.Stderr, "failed to open process-tree guard log %q: %v\\n", guardLogPath, guardLogErr)
+          \t\t\t\t\t} else {
+          \t\t\t\t\t\tfmt.Fprintf(
+          \t\t\t\t\t\t\tguardLog,
+          \t\t\t\t\t\t\t"%s parent=%s(%d) parent_start=%s rejected_child=%s(%d) child_start=%s\\n",
+          \t\t\t\t\t\t\ttime.Now().UTC().Format(time.RFC3339Nano),
+          \t\t\t\t\t\t\tcurrentName,
+          \t\t\t\t\t\t\tcurrent.Pid,
+          \t\t\t\t\t\t\tcurrentIdentityTime.Format(time.RFC3339Nano),
+          \t\t\t\t\t\t\tchildName,
+          \t\t\t\t\t\t\tchild.Pid,
+          \t\t\t\t\t\t\tchildIdentityTime.Format(time.RFC3339Nano),
+          \t\t\t\t\t\t)
+          \t\t\t\t\t\tif guardLogCloseErr := guardLog.Close(); guardLogCloseErr != nil {
+          \t\t\t\t\t\t\tfmt.Fprintf(os.Stderr, "failed to close process-tree guard log %q: %v\\n", guardLogPath, guardLogCloseErr)
+          \t\t\t\t\t\t}
+          \t\t\t\t\t}
+          \t\t\t\t}
           \t\t\t\tcontinue
           \t\t\t}
           \t\t\tnext = append(next, child)
@@ -404,8 +432,9 @@ jobs:
               $filterArgs = @("--filter-class", "*.WithUrlsTests")
               $expectedTests = 35
             }
-            "CUSTOM-START-TIME-GUARD" {
+            "CUSTOM-START-TIME-GUARD-TRACE" {
               $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\start-time-guard\dcp.exe"
+              $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
               $filterArgs = @("--filter-class", "*.WithUrlsTests")
               $expectedTests = 35
             }
@@ -559,6 +588,14 @@ jobs:
           path: all-results/
           if-no-files-found: ignore
 
+      - name: Upload process-tree guard events
+        if: ${{ always() && matrix.arm == 'CUSTOM-START-TIME-GUARD-TRACE' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: guard-events-${{ matrix.index }}
+          path: guard-events.log
+          if-no-files-found: ignore
+
   results:
     if: always()
     runs-on: ubuntu-latest
@@ -573,10 +610,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | WithUrlsTests process-tree descendant enumeration A/B with out-of-band resource telemetry |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | Trace impossible parent/child relationships rejected by guarded DCP teardown |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | Bundled DCP; custom stock DCP; custom DCP that rejects descendants older than their alleged parent |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | Custom DCP that rejects and records descendants older than their alleged parent |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
