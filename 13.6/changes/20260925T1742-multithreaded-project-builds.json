@@ -6,7 +6,9 @@
   "changeType": "Improvements",
   "communityContributors": [],
   "description": "Project V2's coordinated build and rebuild commands now use MSBuild's multithreaded task execution (`-mt`) when the selected .NET SDK supports it, reducing the time it takes for coordinated project builds to complete and the dashboard to reach full readiness.",
-  "docsPrs": [],
+  "docsPrs": [
+    1744
+  ],
   "docsRequired": false,
   "emoji": "⚡",
   "firstMergedAt": "2026-09-25T17:42:37Z",

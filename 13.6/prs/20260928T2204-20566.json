@@ -1,0 +1,9 @@
+{
+  "author": "joperezr",
+  "comment": "Build compliance only; no shipped product change",
+  "mergedAt": "2026-09-28T22:04:24Z",
+  "number": 20566,
+  "runDate": "2026-09-29T00:07:18Z",
+  "status": "excluded",
+  "title": "[release/13.6] Address container supply-chain warnings to make the official build green"
+}

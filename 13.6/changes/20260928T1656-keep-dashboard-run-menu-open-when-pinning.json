@@ -1,0 +1,19 @@
+{
+  "area": "Dashboard",
+  "areaEmoji": "📊",
+  "backport": true,
+  "breaking": false,
+  "changeType": "Bug fixes",
+  "communityContributors": [],
+  "description": "Pinning or unpinning a historical run in the dashboard run selector no longer closes the menu, so runs can be compared or organized without reopening the selector each time.",
+  "docsPrs": [],
+  "docsRequired": false,
+  "emoji": "📌",
+  "firstMergedAt": "2026-09-28T16:56:18Z",
+  "lastMergedAt": "2026-09-28T16:56:18Z",
+  "name": "Keep dashboard run menu open when pinning",
+  "owner": "JamesNK",
+  "prs": [
+    20546
+  ]
+}

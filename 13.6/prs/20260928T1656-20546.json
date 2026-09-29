@@ -1,0 +1,9 @@
+{
+  "author": "JamesNK",
+  "comment": "Dashboard run menu stays open when pinning",
+  "mergedAt": "2026-09-28T16:56:18Z",
+  "number": 20546,
+  "runDate": "2026-09-29T00:07:18Z",
+  "status": "included",
+  "title": "[release/13.6] Keep dashboard run menu open when pinning"
+}
