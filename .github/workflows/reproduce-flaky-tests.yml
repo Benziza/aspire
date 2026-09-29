@@ -22,24 +22,8 @@ env:
   # Examples: Hosting, Core, Dashboard, Components.Common, Cli.EndToEnd
   TEST_PROJECT: "Hosting"
 
-  # Test filter arguments passed to dotnet test (after the -- separator).
-  # Use quotes around wildcard patterns to prevent shell glob expansion.
-  # Examples:
-  #   --filter-method "*.TestMethodName"
-  #   --filter-class "*.TestClassName"
-  #   --filter-method "*.Test1" --filter-method "*.Test2"
-  TEST_FILTER: '--filter-method "*.DashboardUrlsThenLogStreamOptionsWork"'
-
-  # Target operating systems (comma-separated)
-  # Options: ubuntu-latest, windows-latest, macos-latest
-  TARGET_OSES: "windows-latest"
-
-  # Number of parallel runners per OS
-  # Total jobs = RUNNERS_PER_OS × number of OSes (must be ≤ 256)
-  RUNNERS_PER_OS: "36"
-
-  # Number of test iterations each runner executes
-  ITERATIONS_PER_RUNNER: "1"
+  # The arms run concurrently so they share runner-pool and time-of-day effects.
+  RUNNERS_PER_ARM: "48"
 
 jobs:
 
@@ -55,36 +39,8 @@ jobs:
         run: |
           ERRORS=0
 
-          # Validate RUNNERS_PER_OS is a positive integer
-          if ! [[ "${{ env.RUNNERS_PER_OS }}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::RUNNERS_PER_OS must be a positive integer, got '${{ env.RUNNERS_PER_OS }}'"
-            ERRORS=1
-          fi
-
-          # Validate ITERATIONS_PER_RUNNER is a positive integer
-          if ! [[ "${{ env.ITERATIONS_PER_RUNNER }}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::ITERATIONS_PER_RUNNER must be a positive integer, got '${{ env.ITERATIONS_PER_RUNNER }}'"
-            ERRORS=1
-          fi
-
-          # Validate TARGET_OSES is not empty and contains only known runners
-          if [[ -z "${{ env.TARGET_OSES }}" ]]; then
-            echo "::error::TARGET_OSES must not be empty"
-            ERRORS=1
-          else
-            IFS=',' read -ra CHECK_OSES <<< "${{ env.TARGET_OSES }}"
-            for os in "${CHECK_OSES[@]}"; do
-              os=$(echo "$os" | xargs)
-              if [[ "$os" != "ubuntu-latest" && "$os" != "windows-latest" && "$os" != "macos-latest" ]]; then
-                echo "::error::Unknown OS in TARGET_OSES: '$os'. Allowed: ubuntu-latest, windows-latest, macos-latest"
-                ERRORS=1
-              fi
-            done
-          fi
-
-          # Validate TEST_FILTER is not the placeholder
-          if [[ "$TEST_FILTER" == *"YourTestMethodName"* ]]; then
-            echo "::error::TEST_FILTER still contains the placeholder 'YourTestMethodName'. Configure it with the actual test to reproduce."
+          if ! [[ "${{ env.RUNNERS_PER_ARM }}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::RUNNERS_PER_ARM must be a positive integer, got '${{ env.RUNNERS_PER_ARM }}'"
             ERRORS=1
           fi
 
@@ -104,25 +60,23 @@ jobs:
         id: generate
         shell: bash
         run: |
-          IFS=',' read -ra OSES <<< "${{ env.TARGET_OSES }}"
-          RUNNERS=${{ env.RUNNERS_PER_OS }}
-
-          ENTRIES=""
-          for os in "${OSES[@]}"; do
-            os=$(echo "$os" | xargs)
-            for i in $(seq 1 "$RUNNERS"); do
-              if [ -n "$ENTRIES" ]; then ENTRIES="$ENTRIES,"; fi
-              ENTRIES="${ENTRIES}{\"os\":\"${os}\",\"index\":${i}}"
-            done
-          done
-
-          MATRIX="{\"include\":[${ENTRIES}]}"
+          RUNNERS=${{ env.RUNNERS_PER_ARM }}
+          MATRIX=$(jq -cn \
+            --argjson runners "$RUNNERS" \
+            '{include: [
+              range(1; $runners + 1) as $index |
+              ["T1", "T4", "N4"][] as $arm |
+              {
+                os: "windows-latest",
+                index: $index,
+                arm: $arm
+              }
+            ]}')
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
-          TOTAL=$(echo "$ENTRIES" | tr ',' '\n' | wc -l)
-          echo "Generated matrix: $TOTAL runners across ${#OSES[@]} OS(es)"
-          echo "Each runner will execute ${{ env.ITERATIONS_PER_RUNNER }} iterations"
-          echo "Total test executions: $(( TOTAL * ${{ env.ITERATIONS_PER_RUNNER }} ))"
+          TOTAL=$((RUNNERS * 3))
+          echo "Generated matrix: $TOTAL Windows runners across 3 concurrent arms"
+          echo "DCP-heavy test processes: $((RUNNERS * 5)); unit-test processes: $((RUNNERS * 4))"
 
   build_cli_e2e_image:
     name: Build CLI E2E Docker image
@@ -131,7 +85,7 @@ jobs:
     uses: ./.github/workflows/build-cli-e2e-image.yml
 
   reproduce:
-    name: "${{ matrix.os }} #${{ matrix.index }}"
+    name: "${{ matrix.arm }} / ${{ matrix.os }} #${{ matrix.index }}"
     needs: [setup, build_cli_e2e_image]
     if: >-
       ${{
@@ -146,6 +100,7 @@ jobs:
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
     env:
       DOTNET_ROOT: ${{ github.workspace }}/.dotnet
+      EXPERIMENT_ARM: ${{ matrix.arm }}
 
     steps:
       - name: Setup vars (Linux/macOS)
@@ -331,10 +286,43 @@ jobs:
         run: |
           $pass = 0
           $fail = 0
-          $iterations = [int]"${{ env.ITERATIONS_PER_RUNNER }}"
+
+          $computer = Get-CimInstance Win32_ComputerSystem
+          $systemDrive = Get-PSDrive -Name D -ErrorAction SilentlyContinue
+          Write-Host "Runner fingerprint: processors=$($computer.NumberOfLogicalProcessors), memoryBytes=$($computer.TotalPhysicalMemory), driveDBytes=$($systemDrive.Used + $systemDrive.Free), image=$env:ImageVersion"
+
+          switch ($env:EXPERIMENT_ARM) {
+            "T1" {
+              $iterations = 1
+              $filterArgs = @(
+                "--filter-method", "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess",
+                "--filter-method", "*.StartAsync_DashboardUrls_DisplayPropertiesSet",
+                "--filter-method", "*.LogStreamOptionsWork"
+              )
+            }
+            "T4" {
+              $iterations = 4
+              $filterArgs = @(
+                "--filter-method", "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess",
+                "--filter-method", "*.StartAsync_DashboardUrls_DisplayPropertiesSet",
+                "--filter-method", "*.LogStreamOptionsWork"
+              )
+            }
+            "N4" {
+              $iterations = 4
+              $filterArgs = @("--filter-class", "Aspire.Hosting.Tests.Utils.PasswordGeneratorTests")
+            }
+            default {
+              throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
+            }
+          }
 
           for ($i = 1; $i -le $iterations; $i++) {
             Write-Host "::group::Iteration $i/$iterations"
+
+            $processes = @(Get-Process)
+            $handleCount = ($processes | Measure-Object -Property Handles -Sum).Sum
+            Write-Host "Process snapshot before cleanup: total=$($processes.Count), handles=$handleCount, dotnet=$(@($processes | Where-Object ProcessName -eq 'dotnet').Count), dcp=$(@($processes | Where-Object ProcessName -Match '^dcp').Count), conhost=$(@($processes | Where-Object ProcessName -eq 'conhost').Count)"
 
             # Cleanup between iterations
             Remove-Item -Recurse -Force "${{ github.workspace }}/testresults" -ErrorAction SilentlyContinue
@@ -352,8 +340,14 @@ jobs:
                 --no-restore `
                 --no-build `
                 -- `
+                --ignore-exit-code 8 `
+                --crashdump `
+                --hangdump `
+                --hangdump-type none `
+                --hangdump-timeout 4m `
+                --timeout 6m `
                 --results-directory "${{ github.workspace }}/testresults" `
-                ${{ env.TEST_FILTER }} *> $iterOutput
+                @filterArgs *> $iterOutput
               $result = $LASTEXITCODE
             }
             finally {
@@ -390,7 +384,7 @@ jobs:
 
           Write-Host ""
           Write-Host "========================================"
-          Write-Host "Summary for runner #${{ matrix.index }} on ${{ matrix.os }}"
+          Write-Host "Summary for ${{ matrix.arm }} runner #${{ matrix.index }} on ${{ matrix.os }}"
           Write-Host "  Passed: $pass / $iterations"
           Write-Host "  Failed: $fail / $iterations"
           Write-Host "========================================"
@@ -401,7 +395,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: failures-${{ matrix.os }}-${{ matrix.index }}
+          name: failures-${{ matrix.arm }}-${{ matrix.os }}-${{ matrix.index }}
           path: all-results/
           if-no-files-found: ignore
 
@@ -419,10 +413,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Filter | \`${{ env.TEST_FILTER }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| OSes | ${{ env.TARGET_OSES }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Runners per OS | ${{ env.RUNNERS_PER_OS }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Iterations per runner | ${{ env.ITERATIONS_PER_RUNNER }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | Concurrent DCP exposure scaling with unit-test control |" >> $GITHUB_STEP_SUMMARY
+          echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
+          echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | T1: DCP-heavy ×1; T4: DCP-heavy ×4; N4: non-DCP unit test ×4 |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then

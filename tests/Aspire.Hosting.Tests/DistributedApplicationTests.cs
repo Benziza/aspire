@@ -2232,7 +2232,7 @@ public class DistributedApplicationTests
         // It is not intended to verify the functionality of all possible option combinations.
 
         const string testName = "log-stream-options-work";
-        using var testProgram = CreateTestProgram(testName);
+        using var testProgram = CreateTestProgram(testName, randomizePorts: false);
 
         using var app = testProgram.Build();
 
@@ -2289,20 +2289,6 @@ public class DistributedApplicationTests
         }
 
         await app.StopAsync(token).DefaultTimeout(TestConstants.DefaultOrchestratorTestLongTimeout);
-    }
-
-    [Fact]
-    public async Task DashboardUrlsThenLogStreamOptionsWork()
-    {
-        await StartAsync_DashboardUrls_DisplayPropertiesSet();
-        await LogStreamOptionsWork();
-    }
-
-    [Fact]
-    public async Task LogStreamOptionsThenDashboardUrls()
-    {
-        await LogStreamOptionsWork();
-        await StartAsync_DashboardUrls_DisplayPropertiesSet();
     }
 
     [Theory]
