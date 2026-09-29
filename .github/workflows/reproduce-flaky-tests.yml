@@ -28,7 +28,7 @@ env:
   #   --filter-method "*.TestMethodName"
   #   --filter-class "*.TestClassName"
   #   --filter-method "*.Test1" --filter-method "*.Test2"
-  TEST_FILTER: '--filter-method "*.DashboardUrlsThenLogStreamOptionsWork"'
+  TEST_FILTER: '--filter-method "*.LogStreamOptionsThenDashboardUrls"'
 
   # Target operating systems (comma-separated)
   # Options: ubuntu-latest, windows-latest, macos-latest
