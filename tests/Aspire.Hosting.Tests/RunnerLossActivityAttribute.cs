@@ -3,9 +3,11 @@
 
 using System.Reflection;
 
+[assembly: Aspire.Hosting.Tests.RunnerLossActivity]
+
 namespace Aspire.Hosting.Tests;
 
-[AttributeUsage(AttributeTargets.Class)]
+[AttributeUsage(AttributeTargets.Assembly)]
 internal sealed class RunnerLossActivityAttribute : BeforeAfterTestAttribute
 {
     private static readonly object s_lock = new();

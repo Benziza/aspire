@@ -18,6 +18,14 @@ on:
         description: Number of fresh Windows runners for each experiment arm
         required: false
         default: "36"
+      dcp_variant:
+        description: DCP implementation to validate
+        required: false
+        type: choice
+        options:
+          - pr278
+          - narrow-guard
+        default: pr278
 
 permissions:
   contents: read
@@ -53,6 +61,14 @@ jobs:
             ERRORS=1
           fi
 
+          case "${{ inputs.dcp_variant }}" in
+            pr278|narrow-guard) ;;
+            *)
+              echo "::error::Unknown DCP variant '${{ inputs.dcp_variant }}'"
+              ERRORS=1
+              ;;
+          esac
+
           if [[ $ERRORS -ne 0 ]]; then exit 1; fi
 
       - name: Detect CLI E2E project
@@ -70,13 +86,18 @@ jobs:
         shell: bash
         run: |
           RUNNERS=${{ env.RUNNERS_PER_ARM }}
+          case "${{ inputs.dcp_variant }}" in
+            pr278) ARM_PREFIX="DCP278" ;;
+            narrow-guard) ARM_PREFIX="GUARD" ;;
+          esac
           MATRIX=$(jq -cn \
             --argjson runners "$RUNNERS" \
+            --arg arm_prefix "$ARM_PREFIX" \
             '{include: [
               range(1; $runners + 1) as $index |
               [
-                "DCP278-HOSTING1",
-                "DCP278-HOSTING5"
+                ($arm_prefix + "-HOSTING1"),
+                ($arm_prefix + "-HOSTING5")
               ][] as $arm |
               {
                 os: "windows-latest",
@@ -87,11 +108,11 @@ jobs:
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
           TOTAL=$((RUNNERS * 2))
-          echo "Generated matrix: $TOTAL Windows runners across full Hosting-1 and Hosting-5 arms using microsoft/dcp#278"
+          echo "Generated matrix: $TOTAL Windows runners across full Hosting-1 and Hosting-5 arms using ${{ inputs.dcp_variant }}"
           echo "Each arm runs one test process on a fresh runner"
 
   build_dcp_experiment:
-    name: Build microsoft/dcp#278
+    name: Build DCP variants
     runs-on: ubuntu-latest
     steps:
       - name: Checkout microsoft/dcp#278
@@ -99,25 +120,117 @@ jobs:
         with:
           repository: microsoft/dcp
           ref: 842f976b3c22e886bd307cded5b849fd94bc8234
-          path: dcp
+          path: dcp-pr278-source
 
-      - name: Build PR Windows binary
+      - name: Checkout DCP v0.26.4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: microsoft/dcp
+          ref: v0.26.4
+          path: dcp-guard-source
+
+      - name: Build microsoft/dcp#278 Windows binary
         shell: bash
         run: |
           set -euo pipefail
-          cd dcp
+          cd dcp-pr278-source
           test "$(git rev-parse HEAD)" = "842f976b3c22e886bd307cded5b849fd94bc8234"
           make generate-grpc
-          mkdir -p ../dcp-pr278
+          mkdir -p ../dcp-variants/pr278
 
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -o ../dcp-pr278/dcp.exe ./cmd/dcp
+            go build -o ../dcp-variants/pr278/dcp.exe ./cmd/dcp
 
-      - name: Upload DCP PR binary
+      - name: Build narrow-guard Windows binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dcp-guard-source
+          test "$(git describe --tags --exact-match)" = "v0.26.4"
+          make generate-grpc
+          mkdir -p ../dcp-variants/narrow-guard
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("pkg/process/process_util.go")
+          source = path.read_text()
+          needle = '''\
+          \t\tnextPid := Uint32_ToPidT(uint32(current.Pid))
+          \t\ttree = append(tree, ProcessHandle{nextPid, processIdentityTime(current)})
+
+          \t\tchildren, childrenErr := current.Children()
+          \t\tif childrenErr != nil {
+          \t\t\t// If we fail to get the children, assume there are no children.
+          \t\t\tchildren = []*ps.Process{}
+          \t\t}
+
+          \t\tnext = append(next, children...)
+          '''
+          replacement = '''\
+          \t\tnextPid := Uint32_ToPidT(uint32(current.Pid))
+          \t\tcurrentIdentityTime := processIdentityTime(current)
+          \t\ttree = append(tree, ProcessHandle{nextPid, currentIdentityTime})
+
+          \t\tchildren, childrenErr := current.Children()
+          \t\tif childrenErr != nil {
+          \t\t\t// If we fail to get the children, assume there are no children.
+          \t\t\tchildren = []*ps.Process{}
+          \t\t}
+
+          \t\tfor _, child := range children {
+          \t\t\t// Windows can retain a dead process's parent PID after that PID is reused.
+          \t\t\t// A real child cannot have started before its parent.
+          \t\t\tchildIdentityTime := processIdentityTime(child)
+          \t\t\tif !currentIdentityTime.IsZero() && !childIdentityTime.IsZero() && childIdentityTime.Before(currentIdentityTime) {
+          \t\t\t\tif guardLogPath := os.Getenv("DCP_PROCESS_TREE_GUARD_LOG"); guardLogPath != "" {
+          \t\t\t\t\tcurrentName, currentNameErr := current.Name()
+          \t\t\t\t\tif currentNameErr != nil {
+          \t\t\t\t\t\tcurrentName = "<unknown>"
+          \t\t\t\t\t}
+          \t\t\t\t\tchildName, childNameErr := child.Name()
+          \t\t\t\t\tif childNameErr != nil {
+          \t\t\t\t\t\tchildName = "<unknown>"
+          \t\t\t\t\t}
+          \t\t\t\t\tguardLog, guardLogErr := os.OpenFile(guardLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+          \t\t\t\t\tif guardLogErr != nil {
+          \t\t\t\t\t\tfmt.Fprintf(os.Stderr, "failed to open process-tree guard log %q: %v\\n", guardLogPath, guardLogErr)
+          \t\t\t\t\t} else {
+          \t\t\t\t\t\tfmt.Fprintf(
+          \t\t\t\t\t\t\tguardLog,
+          \t\t\t\t\t\t\t"%s parent=%s(%d) parent_start=%s rejected_child=%s(%d) child_start=%s\\n",
+          \t\t\t\t\t\t\ttime.Now().UTC().Format(time.RFC3339Nano),
+          \t\t\t\t\t\t\tcurrentName,
+          \t\t\t\t\t\t\tcurrent.Pid,
+          \t\t\t\t\t\t\tcurrentIdentityTime.Format(time.RFC3339Nano),
+          \t\t\t\t\t\t\tchildName,
+          \t\t\t\t\t\t\tchild.Pid,
+          \t\t\t\t\t\t\tchildIdentityTime.Format(time.RFC3339Nano),
+          \t\t\t\t\t\t)
+          \t\t\t\t\t\tif guardLogCloseErr := guardLog.Close(); guardLogCloseErr != nil {
+          \t\t\t\t\t\t\tfmt.Fprintf(os.Stderr, "failed to close process-tree guard log %q: %v\\n", guardLogPath, guardLogCloseErr)
+          \t\t\t\t\t\t}
+          \t\t\t\t\t}
+          \t\t\t\t}
+          \t\t\t\tcontinue
+          \t\t\t}
+          \t\t\tnext = append(next, child)
+          \t\t}
+          '''
+          if source.count(needle) != 1:
+              raise SystemExit("Expected one process-tree traversal block")
+          path.write_text(source.replace(needle, replacement))
+          PY
+          gofmt -w pkg/process/process_util.go
+
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+            go build -o ../dcp-variants/narrow-guard/dcp.exe ./cmd/dcp
+
+      - name: Upload DCP binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dcp-pr278
-          path: dcp-pr278/
+          name: dcp-variants
+          path: dcp-variants/
           if-no-files-found: error
 
   build_cli_e2e_image:
@@ -246,12 +359,12 @@ jobs:
         if: runner.os == 'Windows'
         run: ${{ env.DOTNET_SCRIPT }} build-server shutdown
 
-      - name: Download DCP PR binary
+      - name: Download DCP binaries
         if: runner.os == 'Windows'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: dcp-pr278
-          path: ${{ github.workspace }}/dcp-pr278
+          name: dcp-variants
+          path: ${{ github.workspace }}/dcp-variants
 
       - name: Run test iterations (Linux/macOS)
         if: runner.os != 'Windows'
@@ -350,12 +463,24 @@ jobs:
           $iterations = 1
           switch ($env:EXPERIMENT_ARM) {
             "DCP278-HOSTING1" {
-              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-pr278\dcp.exe"
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-variants\pr278\dcp.exe"
               $filterArgs = @("--filter-trait", "Partition=1")
               $expectedTests = 27
             }
             "DCP278-HOSTING5" {
-              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-pr278\dcp.exe"
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-variants\pr278\dcp.exe"
+              $filterArgs = @("--filter-trait", "Partition=5")
+              $expectedTests = 534
+            }
+            "GUARD-HOSTING1" {
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-variants\narrow-guard\dcp.exe"
+              $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
+              $filterArgs = @("--filter-trait", "Partition=1")
+              $expectedTests = 27
+            }
+            "GUARD-HOSTING5" {
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-variants\narrow-guard\dcp.exe"
+              $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
               $filterArgs = @("--filter-trait", "Partition=5")
               $expectedTests = 534
             }
@@ -509,6 +634,14 @@ jobs:
           path: all-results/
           if-no-files-found: ignore
 
+      - name: Upload process-tree guard events
+        if: ${{ always() && startsWith(matrix.arm, 'GUARD-') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: guard-events-${{ matrix.arm }}-${{ matrix.index }}
+          path: guard-events.log
+          if-no-files-found: ignore
+
   results:
     if: always()
     runs-on: ubuntu-latest
@@ -523,10 +656,11 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | microsoft/dcp#278 validation against complete Hosting partitions |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | DCP process-tree fix validation against complete Hosting partitions |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| DCP commit | \`842f976b3c22e886bd307cded5b849fd94bc8234\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| DCP variant | \`${{ inputs.dcp_variant }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| DCP PR commit | \`842f976b3c22e886bd307cded5b849fd94bc8234\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Arms | Complete Hosting-1; complete Hosting-5 |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
