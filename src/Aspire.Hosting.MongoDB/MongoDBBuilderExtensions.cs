@@ -327,6 +327,11 @@ public static class MongoDBBuilderExtensions
             .WithHttpEndpoint(targetPort: 8081, name: MongoExpressContainerResource.PrimaryEndpointName)
             .WithParentRelationship(builder)
             .WithRelationship(builder.Resource, KnownRelationshipTypes.Manages)
+            // NOTE: Mongo Express lists collections as soon as it connects and exits if that fails. The image's entrypoint
+            // only waits for the TCP port, which a replica set member opens before it is initialized or elected primary,
+            // and the member rejects reads until then (`NotPrimaryNoSecondaryOk`). The server's health check covers
+            // replica set initialization and primary election.
+            .WaitFor(builder)
             .ExcludeFromManifest();
 
         resourceBuilder.WithHidden();

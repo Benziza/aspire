@@ -130,6 +130,19 @@ public class AddMongoDBTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public void WithMongoExpressWaitsForTheServer()
+    {
+        using var builder = TestDistributedApplicationBuilder.Create(testOutputHelper);
+        var mongo = builder.AddMongoDB("mongo")
+            .WithMongoExpress();
+
+        var mongoExpress = Assert.Single(builder.Resources.OfType<MongoExpressContainerResource>());
+        var wait = Assert.Single(mongoExpress.Annotations.OfType<WaitAnnotation>());
+        Assert.Same(mongo.Resource, wait.Resource);
+        Assert.Equal(WaitType.WaitUntilHealthy, wait.WaitType);
+    }
+
+    [Fact]
     public void WithMongoExpressSupportsChangingContainerImageValues()
     {
         var builder = DistributedApplication.CreateBuilder();
