@@ -6,7 +6,9 @@
   "changeType": "New features",
   "communityContributors": [],
   "description": "Polyglot AppHosts (Python, Go, Java, TypeScript, Rust) can now call the `DotnetProjectResource`-backed Blazor gateway APIs, which were previously only usable from C# AppHosts.",
-  "docsPrs": [],
+  "docsPrs": [
+    1564
+  ],
   "docsRequired": true,
   "emoji": "🌍",
   "firstMergedAt": "2026-08-21T17:01:39Z",
