@@ -28,7 +28,7 @@ env:
   #   --filter-method "*.TestMethodName"
   #   --filter-class "*.TestClassName"
   #   --filter-method "*.Test1" --filter-method "*.Test2"
-  TEST_FILTER: '--filter-method "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess" --filter-method "*.StartAsync_DashboardUrls_DisplayPropertiesSet" --filter-method "*.LogStreamOptionsWork"'
+  TEST_FILTER: '--filter-method "*.EndpointsGetDevLocalhostUrlsWhenDashboardHasDevLocalhostUrl" --filter-method "*.WithUrlForEndpointAddTurnsRelativeUrlIntoAbsoluteUrl" --filter-method "*.ProjectLaunchProfileRelativeLaunchUrlIsAddedToEndpointUrl" --filter-method "*.ProjectLaunchProfileAbsoluteLaunchUrlIsUsedAsEndpointUrl" --filter-method "*.WithUrlAddsUrlAnnotation" --filter-method "*.WithUrlsProvidesServiceProviderInstanceOnCallbackContextAllocated"'
 
   # Target operating systems (comma-separated)
   # Options: ubuntu-latest, windows-latest, macos-latest
@@ -36,7 +36,7 @@ env:
 
   # Number of parallel runners per OS
   # Total jobs = RUNNERS_PER_OS × number of OSes (must be ≤ 256)
-  RUNNERS_PER_OS: "20"
+  RUNNERS_PER_OS: "36"
 
   # Number of test iterations each runner executes
   ITERATIONS_PER_RUNNER: "1"
