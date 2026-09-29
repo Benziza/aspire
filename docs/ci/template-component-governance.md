@@ -49,6 +49,6 @@ The committed output is the repository-root `cgmanifest.json`. For a default Deb
 
 Set `-p:TemplateCgManifestPath=<path>` to place the manifest elsewhere. Only graphs in the current plan contribute packages; stale generated directories are not scanned. Template render failures, restore failures, missing npm lockfiles, and unbounded dependency parameters fail generation rather than silently omitting coverage. Shared template `.props`/`.targets` inputs need explicit support before they can be introduced. The generated projects are restore-only, not buildable test applications.
 
-The helper accepts `--plan-only` after its six positional arguments to inspect graph deduplication without restoring. Discovery tests exercise option handling and graph sharing without requiring package feeds.
+The helper's `--help` describes its six required positional arguments and the mutually exclusive `--plan-only` and `--verify` options. Use `--plan-only` to inspect graph deduplication without restoring. Discovery tests exercise option handling and graph sharing without requiring package feeds.
 
 This verification does not change the shipping template package. Coverage is evaluated with the invoking repository SDK; it is not a replacement for SDK compatibility or behavioral template tests.

@@ -16,6 +16,7 @@
     <Reference Include="$(MSBuildBinPath)\Microsoft.TemplateEngine.Orchestrator.RunnableProjects.dll" />
     <Reference Include="$(MSBuildBinPath)\Microsoft.TemplateEngine.Utils.dll" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="System.CommandLine" />
     <Reference Include="$(MSBuildBinPath)\Newtonsoft.Json.dll" />
     <Reference Include="$(MSBuildBinPath)\NuGet.*.dll" />
     <InternalsVisibleTo Include="Infrastructure.Tests" />
