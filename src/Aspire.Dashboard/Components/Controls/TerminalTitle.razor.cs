@@ -43,6 +43,9 @@ public partial class TerminalTitle : IAsyncDisposable
     [Inject]
     public required IJSRuntime JS { get; init; }
 
+    [Inject]
+    public required ILogger<TerminalTitle> Logger { get; init; }
+
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -55,10 +58,25 @@ public partial class TerminalTitle : IAsyncDisposable
 
     private async Task InitializeAsync()
     {
-        _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", $"./{Assets["Components/Controls/TerminalTitle.razor.js"]}");
-        if (!_disposed)
+        try
         {
-            await _jsModule.InvokeVoidAsync("observePath", _metadataElement);
+            _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", $"./{Assets["Components/Controls/TerminalTitle.razor.js"]}");
+            if (!_disposed)
+            {
+                await _jsModule.InvokeVoidAsync("observePath", _metadataElement);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone; there is no metadata observer to keep alive.
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+            // Disposal can interrupt the optional observer setup.
+        }
+        catch (JSException ex)
+        {
+            Logger.LogWarning(ex, "Could not initialize terminal path measurement.");
         }
     }
 
@@ -104,6 +122,7 @@ public partial class TerminalTitle : IAsyncDisposable
         value,
         ControlsLoc[nameof(Resources.ControlsStrings.GridValueCopyToClipboard)],
         ControlsLoc[nameof(Resources.ControlsStrings.GridValueCopied)],
+        ("data-copyfailed", Loc[nameof(Resources.TerminalStrings.TerminalCopyFailed)].Value),
         ("aria-label", Loc[labelResourceName, value].Value));
 
     private string DisplayTitle => State is { Title.Length: > 0 } ? State.Title : FallbackTitle;

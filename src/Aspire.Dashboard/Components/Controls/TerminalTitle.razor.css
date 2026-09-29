@@ -76,6 +76,16 @@
     text-align: right;
 }
 
+.terminal-copy-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 .terminal-title-copy-icons,
 .terminal-directory-copy-icons {
     flex: 0 0 16px;

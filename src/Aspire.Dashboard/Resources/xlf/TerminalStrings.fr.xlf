@@ -7,6 +7,11 @@
         <target state="new">Toggle terminal (`)</target>
         <note />
       </trans-unit>
+      <trans-unit id="TerminalCopyFailed">
+        <source>Could not copy to clipboard.</source>
+        <target state="new">Could not copy to clipboard.</target>
+        <note />
+      </trans-unit>
       <trans-unit id="TerminalCopyTitle">
         <source>Copy terminal title: {0}</source>
         <target state="new">Copy terminal title: {0}</target>

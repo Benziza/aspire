@@ -164,11 +164,19 @@ window.copyTextToClipboard = function (id, text, precopy, postcopy) {
 
     const copyIcon = button.querySelector('.copy-icon');
     const checkmarkIcon = button.querySelector('.checkmark-icon');
+    const copyStatus = button.nextElementSibling?.classList.contains('terminal-copy-status')
+        ? button.nextElementSibling : null;
+    if (copyStatus) {
+        copyStatus.textContent = '';
+    }
 
     const anchoredTooltip = document.querySelector(`fluent-tooltip[anchor="${id}"]`);
     const tooltipDiv = anchoredTooltip ? anchoredTooltip.children[0] : null;
     navigator.clipboard.writeText(text)
         .then(() => {
+            if (copyStatus) {
+                copyStatus.textContent = postcopy;
+            }
             if (tooltipDiv) {
                 tooltipDiv.innerText = postcopy;
             }
@@ -178,14 +186,20 @@ window.copyTextToClipboard = function (id, text, precopy, postcopy) {
             }
         })
         .catch(error => {
+            if (copyStatus) {
+                copyStatus.textContent = button.getAttribute('data-copyfailed');
+            }
             if (tooltipDiv) {
-                tooltipDiv.innerText = 'Could not access clipboard';
+                tooltipDiv.innerText = button.getAttribute('data-copyfailed') || 'Could not access clipboard';
             } else {
                 console.warn("Dashboard clipboard copy failed.", error);
             }
         });
 
     button.dataset.copyTimeout = setTimeout(function () {
+        if (copyStatus) {
+            copyStatus.textContent = '';
+        }
         if (tooltipDiv) {
             tooltipDiv.innerText = precopy;
         }

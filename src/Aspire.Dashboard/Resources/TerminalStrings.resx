@@ -140,6 +140,9 @@
     <value>Copy terminal title: {0}</value>
     <comment>{0} is the terminal title.</comment>
   </data>
+  <data name="TerminalCopyFailed" xml:space="preserve">
+    <value>Could not copy to clipboard.</value>
+  </data>
   <data name="TerminalProgressError" xml:space="preserve">
     <value>Error</value>
   </data>

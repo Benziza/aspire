@@ -5,6 +5,7 @@ using Aspire.Dashboard.Components.Controls;
 using Aspire.Dashboard.Components.Tests.Shared;
 using Bunit;
 using Microsoft.FluentUI.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Xunit;
 
 namespace Aspire.Dashboard.Components.Tests.Controls;
@@ -38,6 +39,8 @@ public class TerminalTitleTests : DashboardTestContext
         Assert.Equal("true", button.GetAttribute("data-copybutton"));
         Assert.Equal(Resources.ControlsStrings.GridValueCopyToClipboard, button.GetAttribute("data-precopy"));
         Assert.Equal(Resources.ControlsStrings.GridValueCopied, button.GetAttribute("data-postcopy"));
+        Assert.Equal(Resources.TerminalStrings.TerminalCopyFailed, button.GetAttribute("data-copyfailed"));
+        Assert.Equal("polite", cut.Find(".terminal-directory-container [role=status]").GetAttribute("aria-live"));
         Assert.False(button.HasAttribute("disabled"));
         Assert.Equal("Copy working directory: /work/<app>", button.GetAttribute("aria-label"));
         Assert.Empty(cut.FindAll("fluent-tooltip"));
@@ -77,6 +80,8 @@ public class TerminalTitleTests : DashboardTestContext
         Assert.Equal("true", button.GetAttribute("data-copybutton"));
         Assert.Equal($"Copy terminal title: {title}", button.GetAttribute("aria-label"));
         Assert.Equal(Resources.ControlsStrings.GridValueCopied, button.GetAttribute("data-postcopy"));
+        Assert.Equal(Resources.TerminalStrings.TerminalCopyFailed, button.GetAttribute("data-copyfailed"));
+        Assert.Equal("polite", cut.Find(".terminal-title-container [role=status]").GetAttribute("aria-live"));
         Assert.Single(button.QuerySelectorAll(".copy-icon"));
         Assert.Single(button.QuerySelectorAll(".checkmark-icon"));
         Assert.False(button.HasAttribute("title"));
@@ -91,6 +96,23 @@ public class TerminalTitleTests : DashboardTestContext
         Assert.Equal("Copy terminal title: shell", cut.Find(".terminal-title-button").GetAttribute("aria-label"));
         cut.Render(builder => builder.Add(p => p.FallbackTitle, ""));
         Assert.Empty(cut.FindAll(".terminal-title-button"));
+    }
+
+    [Fact]
+    public void PathObserverFailure_DoesNotPreventCopyControlsFromRendering()
+    {
+        var module = JSInterop.SetupModule("./Components/Controls/TerminalTitle.razor.js");
+        module.SetupVoid("observePath", _ => true).SetException(new JSException("Canvas unavailable"));
+
+        var cut = Render<TerminalTitle>(builder => builder.Add(p => p.State, new TerminalToolbarState
+        {
+            Title = "shell",
+            WorkingDirectory = "/work/app"
+        }));
+
+        Assert.Equal("shell", cut.Find(".terminal-title").TextContent);
+        Assert.Equal("/work/app", cut.Find(".terminal-directory").GetAttribute("data-text"));
+        Assert.Single(module.Invocations, i => i.Identifier == "observePath");
     }
 
     [Theory]

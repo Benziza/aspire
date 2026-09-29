@@ -87,6 +87,12 @@ namespace Aspire.Dashboard.Resources {
             }
         }
 
+        public static string TerminalCopyFailed {
+            get {
+                return ResourceManager.GetString("TerminalCopyFailed", resourceCulture);
+            }
+        }
+
         public static string TerminalProgressError {
             get {
                 return ResourceManager.GetString("TerminalProgressError", resourceCulture);
