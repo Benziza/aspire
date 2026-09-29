@@ -8,7 +8,7 @@
         }
         else
         {
-            <FluentIcon Class="terminal-idle-icon" Value="@(IdleIcon ?? s_terminalIcon)" Width="16px" Color="Color.Default" aria-hidden="true" />
+            <FluentIcon Class="terminal-idle-icon" Value="@(IdleIcon ?? s_terminalIcon)" Width="16px" Color="Color.Custom" CustomColor="currentColor" aria-hidden="true" />
         }
     </div>
     @if (!string.IsNullOrEmpty(DisplayTitle))
