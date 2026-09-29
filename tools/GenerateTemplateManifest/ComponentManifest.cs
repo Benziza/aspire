@@ -82,15 +82,4 @@ internal sealed class ComponentManifest(IReadOnlySet<string> builtPackages)
         return packages;
     }
 
-    internal bool Verify(string path, string generatedPath)
-    {
-        var generated = Serialize();
-        if (File.Exists(path) && File.ReadAllText(path).ReplaceLineEndings("\n") == generated)
-        {
-            return true;
-        }
-        Directory.CreateDirectory(Path.GetDirectoryName(generatedPath)!);
-        File.WriteAllText(generatedPath, generated);
-        return false;
-    }
 }

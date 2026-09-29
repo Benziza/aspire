@@ -21,7 +21,7 @@ internal sealed class TemplateManifestCommand : RootCommand
 
     internal Argument<FileInfo> ManifestPath { get; } = new("cgmanifest.json")
     {
-        Description = "Manifest to generate or verify.",
+        Description = "Generated manifest output path.",
         Arity = ArgumentArity.ExactlyOne
     };
 
@@ -48,12 +48,7 @@ internal sealed class TemplateManifestCommand : RootCommand
         Description = "Generate the deduplicated restore plan without restoring packages."
     };
 
-    internal Option<bool> Verify { get; } = new("--verify")
-    {
-        Description = "Verify the existing manifest without modifying it."
-    };
-
-    internal TemplateManifestCommand() : base("Generate or verify the component manifest for template dependencies.")
+    internal TemplateManifestCommand() : base("Generate the component manifest for template dependencies.")
     {
         Arguments.Add(SourceDirectory);
         Arguments.Add(ProcessedDirectory);
@@ -62,18 +57,10 @@ internal sealed class TemplateManifestCommand : RootCommand
         Arguments.Add(LocalPackageFeed);
         Arguments.Add(RestoreDirectory);
         Options.Add(PlanOnly);
-        Options.Add(Verify);
 
         SourceDirectory.AcceptExistingOnly();
         ProcessedDirectory.AcceptExistingOnly();
         NuGetConfigPath.AcceptExistingOnly();
 
-        Validators.Add(result =>
-        {
-            if (result.GetValue(PlanOnly) && result.GetValue(Verify))
-            {
-                result.AddError("--plan-only and --verify cannot be combined.");
-            }
-        });
     }
 }

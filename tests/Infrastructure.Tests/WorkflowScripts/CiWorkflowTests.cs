@@ -8,17 +8,16 @@ namespace Infrastructure.Tests;
 public sealed class CiWorkflowTests
 {
     [Fact]
-    public void TemplateManifestVerificationUsesSameBuildPackagesBeforeCleanup()
+    public void TemplateManifestGenerationUsesSameBuildPackagesBeforeCleanup()
     {
         var job = GetJob(ReadWorkflow("build-packages.yml"), "build_packages");
-        var verify = GetStep(job, "Verify template component manifest");
+        var generate = GetStep(job, "Generate template component manifest");
 
         Assert.True(job.IndexOf("name: Build with packages", StringComparison.Ordinal) <
-            job.IndexOf("name: Verify template component manifest", StringComparison.Ordinal));
-        Assert.True(job.IndexOf("name: Verify template component manifest", StringComparison.Ordinal) <
+            job.IndexOf("name: Generate template component manifest", StringComparison.Ordinal));
+        Assert.True(job.IndexOf("name: Generate template component manifest", StringComparison.Ordinal) <
             job.IndexOf("name: Clean up artifacts", StringComparison.Ordinal));
-        Assert.Contains("eng/scripts/update-template-cgmanifest.ps1 -ChangesOnly", verify);
-        Assert.Contains("github.event.before", verify);
+        Assert.Contains("eng/scripts/generate-template-cgmanifest.ps1", generate);
     }
 
     [Theory]

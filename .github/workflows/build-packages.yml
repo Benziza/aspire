@@ -14,17 +14,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
 
       - name: Build with packages
         run: ./build.sh -restore -build -ci -pack -bl -p:InstallBrowsersForPlaywright=false -p:SkipTestProjects=true -p:SkipPlaygroundProjects=true -p:SkipBundleDeps=true ${{ inputs.versionOverrideArg }}
 
-      - name: Verify template component manifest
+      - name: Generate template component manifest
         shell: pwsh
-        env:
-          TEMPLATE_CG_BASE_SHA: ${{ github.event_name == 'push' && github.event.before || '' }}
-        run: ./eng/scripts/update-template-cgmanifest.ps1 -ChangesOnly
+        run: ./eng/scripts/generate-template-cgmanifest.ps1
 
       - name: Clean up artifacts
         run: |

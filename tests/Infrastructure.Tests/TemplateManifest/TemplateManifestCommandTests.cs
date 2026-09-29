@@ -13,8 +13,6 @@ public sealed class TemplateManifestCommandTests(ITestOutputHelper output)
     [InlineData(null, false)]
     [InlineData("--plan-only", false)]
     [InlineData("--plan-only", true)]
-    [InlineData("--verify", false)]
-    [InlineData("--verify", true)]
     public void ParsesTypedPathsAndOptionsInEitherPosition(string? option, bool optionFirst)
     {
         using var workspace = TemporaryWorkspace.Create(output);
@@ -31,14 +29,13 @@ public sealed class TemplateManifestCommandTests(ITestOutputHelper output)
         Assert.Equal(arguments[4], result.GetValue(command.LocalPackageFeed)!.FullName);
         Assert.Equal(arguments[5], result.GetValue(command.RestoreDirectory)!.FullName);
         Assert.Equal(option == "--plan-only", result.GetValue(command.PlanOnly));
-        Assert.Equal(option == "--verify", result.GetValue(command.Verify));
     }
 
     [Theory]
     [InlineData("missing")]
     [InlineData("extra")]
     [InlineData("unknown-option")]
-    [InlineData("conflicting-options")]
+    [InlineData("removed-verify-option")]
     [InlineData("missing-source")]
     [InlineData("missing-processed")]
     [InlineData("missing-config")]
@@ -57,8 +54,8 @@ public sealed class TemplateManifestCommandTests(ITestOutputHelper output)
             case "unknown-option":
                 arguments = [.. arguments, "--unknown"];
                 break;
-            case "conflicting-options":
-                arguments = [.. arguments, "--plan-only", "--verify"];
+            case "removed-verify-option":
+                arguments = [.. arguments, "--verify"];
                 break;
             case "missing-source":
                 arguments[0] = Path.Combine(workspace.Path, "missing");

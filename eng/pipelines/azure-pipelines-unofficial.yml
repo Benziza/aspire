@@ -156,7 +156,7 @@ extends:
 
             preSteps:
               - checkout: self
-                fetchDepth: 2
+                fetchDepth: 1
                 clean: true
 
             steps:

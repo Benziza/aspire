@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Infrastructure.Tests.TemplateManifest;
 
-public sealed class ComponentManifestTests(ITestOutputHelper output)
+public sealed class ComponentManifestTests
 {
     [Fact]
     public async Task RecordsExternalClosureWithoutBuildSpecificIdentities()
@@ -24,40 +24,6 @@ public sealed class ComponentManifestTests(ITestOutputHelper output)
 
         Assert.Equal(3, manifest.Count);
         await Verifier.Verify(manifest.Serialize(), "json").UseDirectory("Snapshots");
-    }
-
-    [Fact]
-    public void VerificationAcceptsCheckoutLineEndingsAndDoesNotRewriteTheManifest()
-    {
-        using var workspace = TemporaryWorkspace.Create(output);
-        var manifest = new ComponentManifest(new HashSet<string>());
-        manifest.Register("nuget", "External", "1.0.0", "fixture");
-        var path = Path.Combine(workspace.Path, "cgmanifest.json");
-        var generated = Path.Combine(workspace.Path, "cgmanifest.generated.json");
-        var contents = manifest.Serialize().ReplaceLineEndings("\r\n");
-        File.WriteAllText(path, contents);
-
-        Assert.True(manifest.Verify(path, generated));
-        Assert.Equal(contents, File.ReadAllText(path));
-        Assert.False(File.Exists(generated));
-    }
-
-    [Fact]
-    public void VerificationRejectsMissingOrStaleManifestsWithoutOverwritingThem()
-    {
-        using var workspace = TemporaryWorkspace.Create(output);
-        var manifest = new ComponentManifest(new HashSet<string>());
-        manifest.Register("nuget", "External", "1.0.0", "fixture");
-        var path = Path.Combine(workspace.Path, "cgmanifest.json");
-        var generated = Path.Combine(workspace.Path, "cgmanifest.generated.json");
-
-        Assert.False(manifest.Verify(path, generated));
-        Assert.False(File.Exists(path));
-        Assert.True(File.Exists(generated));
-
-        File.WriteAllText(path, "{}");
-        Assert.False(manifest.Verify(path, generated));
-        Assert.Equal("{}", File.ReadAllText(path));
     }
 
     [Fact]

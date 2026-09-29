@@ -97,12 +97,12 @@ steps:
       displayName: 🟣Build
 
   - ${{ if ne(parameters.runAsPublic, 'true') }}:
-    # Restore independent dependency graphs only when manifest inputs changed. The root
-    # manifest is checked in so CG can detect it in any job, including source-analysis jobs.
+    # All same-build packages must exist before restoring template graphs. Keep the generated
+    # manifest under the existing CG scan root until the job's normal scan has completed.
     - pwsh: |
-        & "$(Build.SourcesDirectory)/eng/scripts/update-template-cgmanifest.ps1" `
-          -Configuration '${{ parameters.buildConfig }}' -ChangesOnly
-      displayName: 🟣Verify template component manifest
+        & "$(Build.SourcesDirectory)/eng/scripts/generate-template-cgmanifest.ps1" `
+          -Configuration '${{ parameters.buildConfig }}'
+      displayName: 🟣Generate template component manifest
 
     - ${{ if eq(parameters.validateNpmPackageSignatures, true) }}:
       - pwsh: |

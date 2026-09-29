@@ -17,7 +17,6 @@ command.SetAction(async result =>
     var localPackageFeed = result.GetValue(command.LocalPackageFeed)!.FullName;
     var restoreDirectory = result.GetValue(command.RestoreDirectory)!.FullName;
     var planOnly = result.GetValue(command.PlanOnly);
-    var verify = result.GetValue(command.Verify);
     var builtPackages = planOnly ? new HashSet<string>() : ComponentManifest.ReadBuiltPackages(localPackageFeed);
     var manifest = new ComponentManifest(builtPackages);
     var lockCount = 0;
@@ -225,23 +224,9 @@ command.SetAction(async result =>
         }
     }
 
-    if (verify)
-    {
-        var generatedPath = Path.Combine(restoreDirectory, "cgmanifest.generated.json");
-        if (!manifest.Verify(manifestPath, generatedPath))
-        {
-            Console.Error.WriteLine($"Template cgmanifest.json is out of date. Generated manifest: {generatedPath}");
-            Console.Error.WriteLine("Run: pwsh eng/scripts/update-template-cgmanifest.ps1 -Update -Configuration <build-configuration>, then commit cgmanifest.json.");
-            return 1;
-        }
-        Console.WriteLine($"Verified {manifest.Count} registrations in {manifestPath}.");
-    }
-    else
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
-        File.WriteAllText(manifestPath, manifest.Serialize());
-        Console.WriteLine($"Wrote {manifest.Count} registrations from {plan.Projects.Count} restore projects and {lockCount} npm lockfiles to {manifestPath}");
-    }
+    Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+    File.WriteAllText(manifestPath, manifest.Serialize());
+    Console.WriteLine($"Wrote {manifest.Count} registrations from {plan.Projects.Count} restore projects and {lockCount} npm lockfiles to {manifestPath}");
     return 0;
 });
 

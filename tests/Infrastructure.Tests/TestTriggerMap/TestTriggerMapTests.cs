@@ -56,9 +56,7 @@ public sealed class TestTriggerMapTests
     }
 
     [Theory]
-    [InlineData("cgmanifest.json")]
-    [InlineData("eng/template-cg-inputs.txt")]
-    [InlineData("eng/scripts/update-template-cgmanifest.ps1")]
+    [InlineData("eng/scripts/generate-template-cgmanifest.ps1")]
     public void TemplateManifestInputsSelectInfrastructureCoverage(string path)
     {
         var result = SelectWithRealMap(path);

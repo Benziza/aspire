@@ -264,7 +264,7 @@ extends:
 
     # ----------------------------------------------------------------
     # This stage performs the managed build, sign, pack, and template
-    # component manifest verification. It runs IN PARALLEL with build_sign_native and
+    # component manifest generation. It runs IN PARALLEL with build_sign_native and
     # build_extension — the managed compile/sign/pack does not consume
     # any native CLI artifacts or VS Code extension artifacts (those are
     # stitched into the unified BAR manifest by the assemble stage at
@@ -290,7 +290,7 @@ extends:
           enableSourceIndex: false
           # Publish build logs
           enablePublishBuildArtifacts: true
-          # This job verifies the component manifest but does not run tests.
+          # This job generates the component manifest but does not run tests.
           enablePublishTestResults: false
           workspace:
             clean: all
@@ -316,7 +316,7 @@ extends:
 
             preSteps:
               - checkout: self
-                fetchDepth: 2
+                fetchDepth: 1
                 clean: true
 
             steps:
