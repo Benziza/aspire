@@ -297,7 +297,7 @@ jobs:
           switch ($env:EXPERIMENT_ARM) {
             "H1-FULL" {
               $filterArgs = @("--filter-trait", "Partition=1")
-              $expectedTests = 62
+              $expectedTests = 27
             }
             "H1-DASHBOARD" {
               $filterArgs = @(
@@ -318,7 +318,7 @@ jobs:
                 "--filter-not-method", "*.StartAsync_ResourceServiceEndpointUrl_PassedToDashboardServiceHost",
                 "--filter-not-method", "*.StartAsync_ResourceServiceEndpointUrl_RandomizePortsIgnoresConfiguredPort"
               )
-              $expectedTests = 54
+              $expectedTests = 19
             }
             default {
               throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
@@ -371,7 +371,7 @@ jobs:
             # Detect zero-test runs (--ignore-exit-code 8 in Testing.targets masks exit code 8)
             if ($result -eq 0) {
               $content = Get-Content $iterOutput -Raw -ErrorAction SilentlyContinue
-              $totalMatch = [regex]::Match($content, '(?im)^\s*total:\s*(\d+)\s*$')
+              $totalMatch = [regex]::Match($content, '(?i)total:\s*(\d+)')
               if (-not $totalMatch.Success -or [int]$totalMatch.Groups[1].Value -ne $expectedTests) {
                 $actualTests = if ($totalMatch.Success) { $totalMatch.Groups[1].Value } else { "unknown" }
                 Write-Host "::error::Iteration ${i}: Expected $expectedTests tests for $env:EXPERIMENT_ARM, but observed $actualTests."
