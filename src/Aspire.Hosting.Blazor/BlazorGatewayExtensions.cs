@@ -72,7 +72,7 @@ public static class BlazorGatewayExtensions
     }
 
     /// <summary>
-    /// Registers the built-in Blazor Gateway backed by a <see cref="DotnetProjectResource"/>
+    /// Registers the built-in Blazor Gateway backed by an experimental <see cref="DotnetProjectResource"/>
     /// from <c>Aspire.Hosting.Dotnet</c> (the run/watch-capable .NET resource), rather than the
     /// <see cref="ProjectResource"/> used by <see cref="AddBlazorGateway"/>. The gateway is shipped as
     /// Gateway.cs alongside this library and launched via <c>AddDotnetProject</c>. No separate project is needed.
