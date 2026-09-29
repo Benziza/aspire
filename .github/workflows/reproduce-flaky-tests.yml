@@ -65,7 +65,7 @@ jobs:
             --argjson runners "$RUNNERS" \
             '{include: [
               range(1; $runners + 1) as $index |
-              ["H1-FULL", "H1-DASHBOARD", "H1-NODASHBOARD"][] as $arm |
+              ["H5-FULL", "H5-WITHURLS", "H5-NOWITHURLS"][] as $arm |
               {
                 os: "windows-latest",
                 index: $index,
@@ -295,30 +295,20 @@ jobs:
 
           $iterations = 1
           switch ($env:EXPERIMENT_ARM) {
-            "H1-FULL" {
-              $filterArgs = @("--filter-trait", "Partition=1")
-              $expectedTests = 27
+            "H5-FULL" {
+              $filterArgs = @("--filter-trait", "Partition=5")
+              $expectedTests = 534
             }
-            "H1-DASHBOARD" {
-              $filterArgs = @(
-                "--filter-method", "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess",
-                "--filter-method", "*.StartAsync_DashboardUrls_DisplayPropertiesSet",
-                "--filter-method", "*.StartAsync_UnsecuredAllowAnonymous_PassedToDashboardProcess",
-                "--filter-method", "*.StartAsync_ResourceServiceEndpointUrl_PassedToDashboardServiceHost",
-                "--filter-method", "*.StartAsync_ResourceServiceEndpointUrl_RandomizePortsIgnoresConfiguredPort"
-              )
-              $expectedTests = 8
+            "H5-WITHURLS" {
+              $filterArgs = @("--filter-class", "*.WithUrlsTests")
+              $expectedTests = 35
             }
-            "H1-NODASHBOARD" {
+            "H5-NOWITHURLS" {
               $filterArgs = @(
-                "--filter-trait", "Partition=1",
-                "--filter-not-method", "*.StartAsync_DashboardAuthConfig_PassedToDashboardProcess",
-                "--filter-not-method", "*.StartAsync_DashboardUrls_DisplayPropertiesSet",
-                "--filter-not-method", "*.StartAsync_UnsecuredAllowAnonymous_PassedToDashboardProcess",
-                "--filter-not-method", "*.StartAsync_ResourceServiceEndpointUrl_PassedToDashboardServiceHost",
-                "--filter-not-method", "*.StartAsync_ResourceServiceEndpointUrl_RandomizePortsIgnoresConfiguredPort"
+                "--filter-trait", "Partition=5",
+                "--filter-not-class", "*.WithUrlsTests"
               )
-              $expectedTests = 19
+              $expectedTests = 499
             }
             default {
               throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
@@ -425,10 +415,10 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | Concurrent Hosting-1 dashboard partition split |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | Concurrent Hosting-5 WithUrlsTests partition split |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | Full Partition 1; dashboard-enabled methods; Partition 1 without dashboard-enabled methods |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | Full Partition 5; WithUrlsTests; Partition 5 without WithUrlsTests |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
