@@ -48,7 +48,7 @@ public partial class TerminalDockTests : DashboardTestContext
         cut.WaitForAssertion(() => Assert.Equal(["third", "first", "second", "fourth"],
             cut.FindAll("[role=tab]").Select(tab => tab.TextContent.Trim())));
         Assert.Equal("second", cut.Find("[aria-selected=true]").TextContent.Trim());
-        Assert.Equal(4, JSInterop.Invocations.Count(i => i.Identifier == "initTerminal"));
+        cut.WaitForAssertion(() => Assert.Equal(4, JSInterop.Invocations.Count(i => i.Identifier == "initTerminal")));
 
         await updates.Writer.WriteAsync(TerminalSetupHelpers.Change(TerminalChangeType.Removed, "second"));
         cut.WaitForAssertion(() => Assert.Equal("fourth", cut.Find("[aria-selected=true]").TextContent.Trim()));
@@ -59,7 +59,7 @@ public partial class TerminalDockTests : DashboardTestContext
     }
 
     [Fact]
-    public async Task WorkloadMetadata_FollowsTheActiveTerminalWithoutRemounting()
+    public async Task WorkloadMetadata_PreservesStaticTabTitlesWithoutExtraHeaderOrRemounting()
     {
         var updates = Channel.CreateUnbounded<WatchTerminalsUpdate>();
         TerminalSetupHelpers.SetupTerminalComponents(this,
@@ -79,12 +79,14 @@ public partial class TerminalDockTests : DashboardTestContext
                 ProgressState = "normal", ProgressPercentage = 20 + index
             }));
         }
-        Assert.Equal("title-0", cut.Find(".terminal-dock-tabstrip .terminal-title").TextContent);
-        Assert.Equal("/work/0", cut.Find(".terminal-dock-tabstrip .terminal-directory").GetAttribute("data-text"));
+        Assert.Equal(["first", "second"], cut.FindAll("[role=tab]").Select(tab => tab.TextContent.Trim()));
+        Assert.Empty(cut.FindComponents<TerminalTitle>());
+        Assert.Equal(string.Empty, cut.Find(".terminal-dock-filler").TextContent);
         await cut.FindAll(".terminal-dock-tab-select")[1].ClickAsync(new());
-        Assert.Equal("title-1", cut.Find(".terminal-dock-tabstrip .terminal-title").TextContent);
-        Assert.Equal("/work/1", cut.Find(".terminal-dock-tabstrip .terminal-directory").GetAttribute("data-text"));
-        Assert.Equal("21", cut.Find(".terminal-dock-tabstrip [role=progressbar]").GetAttribute("aria-valuenow"));
+        Assert.Equal(["first", "second"], cut.FindAll("[role=tab]").Select(tab => tab.TextContent.Trim()));
+        Assert.Equal("second", cut.Find("[aria-selected=true]").TextContent.Trim());
+        Assert.Empty(cut.FindComponents<TerminalTitle>());
+        Assert.Equal(string.Empty, cut.Find(".terminal-dock-filler").TextContent);
         Assert.Equal(views, cut.FindComponents<TerminalView>().Select(view => view.Instance));
         Assert.Equal(2, JSInterop.Invocations.Count(i => i.Identifier == "initTerminal"));
     }

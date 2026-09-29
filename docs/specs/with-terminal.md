@@ -450,10 +450,14 @@ input to the footer controls; <kbd>Shift+F6</kbd> moves focus to the preceding
 dashboard control. Hiding the hint preserves its space so focus changes do not
 resize the terminal or move the footer controls.
 
-Terminal headers keep a fixed icon slot before the workload title. Active progress
+Outside the dock, terminal headers keep a fixed icon slot before the workload title. Active progress
 uses a ring with the percentage in its tooltip, not inline text; otherwise the
 resource page shows its resource icon, and other surfaces use a terminal icon.
 Error and warning progress retain their accessible labels and theme colors.
+
+Dock tabs use the titles supplied when the terminals are created, not live workload
+titles. The dock does not show a separate workload title, icon, progress, or working
+directory alongside the tabs.
 
 Dock tabs share the Resources/Parameters tab styling. Drag a tab to reorder it,
 or focus its title and press Alt+Shift+Left/Right. Reordering keeps the active
