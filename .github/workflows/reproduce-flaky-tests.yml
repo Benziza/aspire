@@ -470,7 +470,7 @@ jobs:
             "DCP278-HOSTING5" {
               $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-variants\pr278\dcp.exe"
               $filterArgs = @("--filter-trait", "Partition=5")
-              $expectedTests = 534
+              $expectedTests = 615
             }
             "GUARD-HOSTING1" {
               $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-variants\narrow-guard\dcp.exe"
@@ -482,7 +482,7 @@ jobs:
               $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-variants\narrow-guard\dcp.exe"
               $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
               $filterArgs = @("--filter-trait", "Partition=5")
-              $expectedTests = 534
+              $expectedTests = 615
             }
             default {
               throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
