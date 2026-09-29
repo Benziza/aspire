@@ -32,9 +32,14 @@ internal sealed class RunnerLossActivityAttribute : BeforeAfterTestAttribute
 
         lock (s_lock)
         {
-            File.AppendAllText(
-                activityFile,
-                $"{DateTime.UtcNow:O}\t{phase}\t{testClassName}.{methodName}{Environment.NewLine}");
+            using var stream = new FileStream(activityFile, new FileStreamOptions
+            {
+                Mode = FileMode.Append,
+                Access = FileAccess.Write,
+                Share = FileShare.ReadWrite | FileShare.Delete
+            });
+            using var writer = new StreamWriter(stream);
+            writer.WriteLine($"{DateTime.UtcNow:O}\t{phase}\t{testClassName}.{methodName}");
         }
     }
 }

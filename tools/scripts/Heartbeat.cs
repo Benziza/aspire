@@ -312,7 +312,18 @@ string? GetTestActivity()
         return null;
     }
 
-    return string.Join(" || ", File.ReadLines(activityFile).TakeLast(4));
+    using var stream = new FileStream(activityFile, new FileStreamOptions
+    {
+        Mode = FileMode.Open,
+        Access = FileAccess.Read,
+        Share = FileShare.ReadWrite | FileShare.Delete
+    });
+    using var reader = new StreamReader(stream);
+    return string.Join(
+        " || ",
+        reader.ReadToEnd()
+            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+            .TakeLast(4));
 }
 
 string GetCpuUsage(ref long prevIdle, ref long prevTotal)

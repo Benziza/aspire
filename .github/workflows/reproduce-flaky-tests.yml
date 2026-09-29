@@ -26,6 +26,15 @@ on:
           - pr278
           - narrow-guard
         default: pr278
+      hosting_partition:
+        description: Complete Hosting partition to validate
+        required: false
+        type: choice
+        options:
+          - both
+          - "1"
+          - "5"
+        default: both
 
 permissions:
   contents: read
@@ -69,6 +78,14 @@ jobs:
               ;;
           esac
 
+          case "${{ inputs.hosting_partition }}" in
+            both|1|5) ;;
+            *)
+              echo "::error::Unknown Hosting partition '${{ inputs.hosting_partition }}'"
+              ERRORS=1
+              ;;
+          esac
+
           if [[ $ERRORS -ne 0 ]]; then exit 1; fi
 
       - name: Detect CLI E2E project
@@ -90,25 +107,37 @@ jobs:
             pr278) ARM_PREFIX="DCP278" ;;
             narrow-guard) ARM_PREFIX="GUARD" ;;
           esac
+          case "${{ inputs.hosting_partition }}" in
+            both)
+              PARTITIONS='["HOSTING1", "HOSTING5"]'
+              ARM_COUNT=2
+              ;;
+            1)
+              PARTITIONS='["HOSTING1"]'
+              ARM_COUNT=1
+              ;;
+            5)
+              PARTITIONS='["HOSTING5"]'
+              ARM_COUNT=1
+              ;;
+          esac
           MATRIX=$(jq -cn \
             --argjson runners "$RUNNERS" \
             --arg arm_prefix "$ARM_PREFIX" \
+            --argjson partitions "$PARTITIONS" \
             '{include: [
               range(1; $runners + 1) as $index |
-              [
-                ($arm_prefix + "-HOSTING1"),
-                ($arm_prefix + "-HOSTING5")
-              ][] as $arm |
+              $partitions[] as $partition |
               {
                 os: "windows-latest",
                 index: $index,
-                arm: $arm
+                arm: ($arm_prefix + "-" + $partition)
               }
             ]}')
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
-          TOTAL=$((RUNNERS * 2))
-          echo "Generated matrix: $TOTAL Windows runners across full Hosting-1 and Hosting-5 arms using ${{ inputs.dcp_variant }}"
+          TOTAL=$((RUNNERS * ARM_COUNT))
+          echo "Generated matrix: $TOTAL Windows runners for Hosting partition '${{ inputs.hosting_partition }}' using ${{ inputs.dcp_variant }}"
           echo "Each arm runs one test process on a fresh runner"
 
   build_dcp_experiment:
@@ -661,7 +690,7 @@ jobs:
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
           echo "| DCP variant | \`${{ inputs.dcp_variant }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| DCP PR commit | \`842f976b3c22e886bd307cded5b849fd94bc8234\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | Complete Hosting-1; complete Hosting-5 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Hosting partition | \`${{ inputs.hosting_partition }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
