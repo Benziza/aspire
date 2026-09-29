@@ -94,23 +94,16 @@
 .terminal-progress[data-state] {
     display: flex;
     align-items: center;
-    gap: 3px;
+    box-sizing: content-box;
+    width: 16px;
     padding-inline-end: 12px;
     border-inline-end: 1px solid var(--terminal-titlebar-border-color, var(--colorNeutralStroke1));
     flex-shrink: 0;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
 
 .terminal-progress[data-state="error"] {
     color: var(--error);
     --colorBrandStroke1: var(--error);
-}
-
-.terminal-progress-percentage {
-    /* Reserve three digits, the percent sign and any localized separating space. */
-    inline-size: 5ch;
-    text-align: end;
 }
 
 .terminal-progress[data-state="warning"] {

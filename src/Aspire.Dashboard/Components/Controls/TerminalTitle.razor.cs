@@ -1,10 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Globalization;
 using Aspire.Dashboard.Extensions;
 using Aspire.Dashboard.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
+using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 namespace Aspire.Dashboard.Components.Controls;
@@ -12,6 +14,7 @@ namespace Aspire.Dashboard.Components.Controls;
 /// <summary>Displays the workload title, directory and progress without changing terminal state.</summary>
 public partial class TerminalTitle : IAsyncDisposable
 {
+    private static readonly Icon s_terminalIcon = new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WindowConsole();
     private readonly string _titleButtonId = $"terminal-title-{Guid.NewGuid():N}";
     private readonly string _directoryButtonId = $"terminal-directory-{Guid.NewGuid():N}";
     private ElementReference _metadataElement;
@@ -26,6 +29,10 @@ public partial class TerminalTitle : IAsyncDisposable
     /// <summary>Gets or sets the title used before the workload reports one or after it clears it.</summary>
     [Parameter]
     public string FallbackTitle { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the resource icon shown when progress is inactive; defaults to the terminal icon.</summary>
+    [Parameter]
+    public Icon? IdleIcon { get; set; }
 
     [Inject]
     public required IStringLocalizer<Resources.TerminalStrings> Loc { get; init; }
@@ -102,6 +109,10 @@ public partial class TerminalTitle : IAsyncDisposable
     private string DisplayTitle => State is { Title.Length: > 0 } ? State.Title : FallbackTitle;
 
     private double? ProgressValue => State?.ProgressState is "indeterminate" ? null : State?.ProgressPercentage;
+
+    private bool HasProgress => State is { Connected: true, ProgressState: "normal" or "indeterminate" or "error" or "warning" };
+
+    private string ProgressTooltip => ProgressValue is { } percentage ? (percentage / 100).ToString("P0", CultureInfo.CurrentCulture) : ProgressLabel;
 
     private string ProgressLabel => Loc[State?.ProgressState switch
     {

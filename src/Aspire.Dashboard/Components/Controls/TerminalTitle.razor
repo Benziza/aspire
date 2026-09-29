@@ -1,16 +1,16 @@
 @namespace Aspire.Dashboard.Components.Controls
 
 <div class="terminal-metadata" data-directory="@State?.WorkingDirectory" @ref="_metadataElement">
-    @if (State is { Connected: true, ProgressState: "normal" or "indeterminate" or "error" or "warning" })
-    {
-        <div class="terminal-progress" data-state="@State.ProgressState" title="@ProgressLabel">
+    <div class="terminal-progress" data-state="@(HasProgress ? State!.ProgressState : "none")" title="@(HasProgress ? ProgressTooltip : null)">
+        @if (HasProgress)
+        {
             <AspireProgressRing Width="16px" Value="@ProgressValue" AriaLabel="@ProgressLabel" />
-            @if (ProgressValue is { } percentage)
-            {
-                <span class="terminal-progress-percentage">@((percentage / 100).ToString("P0"))</span>
-            }
-        </div>
-    }
+        }
+        else
+        {
+            <FluentIcon Class="terminal-idle-icon" Value="@(IdleIcon ?? s_terminalIcon)" Width="16px" Color="Color.Default" aria-hidden="true" />
+        }
+    </div>
     @if (!string.IsNullOrEmpty(DisplayTitle))
     {
         <div class="terminal-title-container">

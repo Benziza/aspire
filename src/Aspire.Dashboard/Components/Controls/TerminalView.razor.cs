@@ -6,6 +6,7 @@ using Aspire.Dashboard.Utils;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Localization;
+using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 namespace Aspire.Dashboard.Components.Controls;
@@ -41,6 +42,10 @@ public sealed partial class TerminalView : ComponentBase, IAsyncDisposable
     /// <summary>Gets or sets the display name of the resource that owns the terminal.</summary>
     [Parameter]
     public string? ResourceName { get; set; }
+
+    /// <summary>Gets or sets the resource icon displayed in the titlebar when progress is inactive.</summary>
+    [Parameter]
+    public Icon? ResourceIcon { get; set; }
 
     /// <summary>Gets or sets the zero-based resource replica index.</summary>
     [Parameter]

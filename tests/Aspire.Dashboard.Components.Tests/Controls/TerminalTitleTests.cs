@@ -4,6 +4,7 @@
 using Aspire.Dashboard.Components.Controls;
 using Aspire.Dashboard.Components.Tests.Shared;
 using Bunit;
+using Microsoft.FluentUI.AspNetCore.Components;
 using Xunit;
 
 namespace Aspire.Dashboard.Components.Tests.Controls;
@@ -129,30 +130,47 @@ public class TerminalTitleTests : DashboardTestContext
         Assert.Equal(Resources.TerminalStrings.ResourceManager.GetString(label), progress.GetAttribute("aria-label"));
         var indicator = cut.Find(".terminal-progress");
         Assert.Equal(state, indicator.GetAttribute("data-state"));
-        Assert.Equal(Resources.TerminalStrings.ResourceManager.GetString(label), indicator.GetAttribute("title"));
-        Assert.Equal(expectedText, indicator.TextContent.Trim());
+        Assert.Equal(expectedValue is null ? Resources.TerminalStrings.ResourceManager.GetString(label) : expectedText, indicator.GetAttribute("title"));
+        Assert.Empty(indicator.TextContent.Trim());
         Assert.Equal("terminal-progress", cut.Find(".terminal-metadata").Children[0].ClassName);
         Assert.Equal("terminal-title-container", cut.Find(".terminal-metadata").Children[1].ClassName);
-        if (state == "indeterminate")
-        {
-            Assert.Empty(cut.FindAll(".terminal-progress-percentage"));
-        }
-        else
-        {
-            Assert.Single(cut.FindAll(".terminal-progress-percentage"));
-        }
+        Assert.Single(indicator.Children);
     }
 
     [Theory]
     [InlineData(true, "none")]
     [InlineData(false, "normal")]
     [InlineData(false, "indeterminate")]
-    public void InactiveProgress_IsHidden(bool connected, string state)
+    public void InactiveProgress_ShowsTerminalIcon(bool connected, string state)
     {
         var cut = Render<TerminalTitle>(builder => builder.Add(p => p.State, new TerminalToolbarState
         {
             Connected = connected, ProgressState = state, ProgressPercentage = 42
         }));
         Assert.Empty(cut.FindAll("[role=progressbar]"));
+        Assert.Equal("none", cut.Find(".terminal-progress").GetAttribute("data-state"));
+        Assert.IsType<Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WindowConsole>(cut.FindComponent<FluentIcon<Icon>>().Instance.Value);
+    }
+
+    [Fact]
+    public void ResourceIcon_ReturnsAfterProgressAndDisconnect()
+    {
+        var icon = new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Database();
+        var cut = Render<TerminalTitle>(builder => builder.Add(p => p.IdleIcon, icon));
+        Assert.Same(icon, cut.FindComponent<FluentIcon<Icon>>().Instance.Value);
+
+        cut.Render(builder => builder.Add(p => p.State, new TerminalToolbarState
+        {
+            Connected = true, ProgressState = "normal", ProgressPercentage = 42
+        }));
+        Assert.Single(cut.FindAll("[role=progressbar]"));
+        Assert.Equal("42%", cut.Find(".terminal-progress").GetAttribute("title"));
+        Assert.Empty(cut.FindComponents<FluentIcon<Icon>>());
+
+        cut.Render(builder => builder.Add(p => p.State, new TerminalToolbarState { Connected = true, ProgressState = "none" }));
+        Assert.Same(icon, cut.FindComponent<FluentIcon<Icon>>().Instance.Value);
+        cut.Render(builder => builder.Add(p => p.State, new TerminalToolbarState { Connected = false, ProgressState = "normal", ProgressPercentage = 42 }));
+        Assert.Same(icon, cut.FindComponent<FluentIcon<Icon>>().Instance.Value);
+        Assert.Null(cut.Find(".terminal-progress").GetAttribute("title"));
     }
 }

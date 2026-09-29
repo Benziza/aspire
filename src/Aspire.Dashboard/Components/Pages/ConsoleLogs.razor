@@ -170,6 +170,7 @@
                         @ref="_terminalViewRef"
                         ShowOpenInWindow="@(_activeView == ConsoleLogsView.Terminal)"
                         ResourceName="@_terminalResourceName"
+                        ResourceIcon="@(GetSelectedResource() is { } terminalResource ? ResourceIconHelpers.GetIconForResource(IconResolver, terminalResource, IconSize.Size16) : null)"
                         ReplicaIndex="@_terminalReplicaIndex" />
                 </div>
             }
