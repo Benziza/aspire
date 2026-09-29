@@ -9,6 +9,8 @@ namespace Aspire.Hosting.Testing;
 
 internal static class DistributedApplicationEntryPointInvoker
 {
+    private const string MicrosoftTestingPlatformApplicationMetadataKey = "Microsoft.Testing.Platform.Application";
+
     // This helpers encapsulates all of the complex logic required to:
     // 1. Execute the entry point of the specified assembly in a different thread.
     // 2. Wait for the diagnostic source events to fire
@@ -22,22 +24,41 @@ internal static class DistributedApplicationEntryPointInvoker
         Action<DistributedApplicationBuilder>? onBuilding = null,
         Action<Exception?>? entryPointCompleted = null)
     {
-        if (assembly.EntryPoint is null)
+        var entryPoint = assembly.EntryPoint;
+        if (entryPoint is null)
         {
             return null;
+        }
+
+        if (IsMicrosoftTestingPlatformApplication(assembly))
+        {
+            throw new InvalidOperationException(
+                $"The assembly '{assembly.GetName().Name}' is a Microsoft.Testing.Platform test application. " +
+                $"Invoking its entry point from {nameof(DistributedApplicationFactory)} would recursively run the test application. " +
+                "Ensure the entry point type belongs to the AppHost executable assembly, or use " +
+                $"{nameof(DistributedApplicationTestingBuilder)}.{nameof(DistributedApplicationTestingBuilder.Create)} to construct the application without invoking an entry point.");
         }
 
         return async (args, ct) =>
         {
             var invoker = new EntryPointInvoker(
                 args,
-                assembly.EntryPoint,
+                entryPoint,
                 onConstructing,
                 onConstructed,
                 onBuilding,
                 entryPointCompleted);
             return await invoker.InvokeAsync(ct).ConfigureAwait(false);
         };
+    }
+
+    private static bool IsMicrosoftTestingPlatformApplication(Assembly assembly)
+    {
+        // MTP identifies test application assemblies with:
+        //   [assembly: AssemblyMetadata("Microsoft.Testing.Platform.Application", "true")]
+        return assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Any(static metadata =>
+            string.Equals(metadata.Key, MicrosoftTestingPlatformApplicationMetadataKey, StringComparison.Ordinal) &&
+            string.Equals(metadata.Value, bool.TrueString, StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed class EntryPointInvoker : IObserver<DiagnosticListener>
