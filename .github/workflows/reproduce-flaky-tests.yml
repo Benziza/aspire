@@ -75,8 +75,8 @@ jobs:
             '{include: [
               range(1; $runners + 1) as $index |
               [
-                "GUARDED-WITHURLS",
-                "GUARDED-HOSTING1"
+                "DCP278-HOSTING1",
+                "DCP278-HOSTING5"
               ][] as $arm |
               {
                 os: "windows-latest",
@@ -87,112 +87,37 @@ jobs:
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
           TOTAL=$((RUNNERS * 2))
-          echo "Generated matrix: $TOTAL Windows runners across guarded WithUrls and Hosting-1 arms"
+          echo "Generated matrix: $TOTAL Windows runners across full Hosting-1 and Hosting-5 arms using microsoft/dcp#278"
           echo "Each arm runs one test process on a fresh runner"
 
   build_dcp_experiment:
-    name: Build DCP experiment binaries
+    name: Build microsoft/dcp#278
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout DCP v0.26.4
+      - name: Checkout microsoft/dcp#278
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: microsoft/dcp
-          ref: v0.26.4
+          ref: 842f976b3c22e886bd307cded5b849fd94bc8234
           path: dcp
 
-      - name: Build stock and guarded Windows binaries
+      - name: Build PR Windows binary
         shell: bash
         run: |
           set -euo pipefail
           cd dcp
+          test "$(git rev-parse HEAD)" = "842f976b3c22e886bd307cded5b849fd94bc8234"
           make generate-grpc
-          mkdir -p ../dcp-experiment/stock ../dcp-experiment/start-time-guard
+          mkdir -p ../dcp-pr278
 
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -o ../dcp-experiment/stock/dcp.exe ./cmd/dcp
+            go build -o ../dcp-pr278/dcp.exe ./cmd/dcp
 
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("pkg/process/process_util.go")
-          source = path.read_text()
-          needle = '''\
-          \t\tnextPid := Uint32_ToPidT(uint32(current.Pid))
-          \t\ttree = append(tree, ProcessHandle{nextPid, processIdentityTime(current)})
-
-          \t\tchildren, childrenErr := current.Children()
-          \t\tif childrenErr != nil {
-          \t\t\t// If we fail to get the children, assume there are no children.
-          \t\t\tchildren = []*ps.Process{}
-          \t\t}
-
-          \t\tnext = append(next, children...)
-          '''
-          replacement = '''\
-          \t\tnextPid := Uint32_ToPidT(uint32(current.Pid))
-          \t\tcurrentIdentityTime := processIdentityTime(current)
-          \t\ttree = append(tree, ProcessHandle{nextPid, currentIdentityTime})
-
-          \t\tchildren, childrenErr := current.Children()
-          \t\tif childrenErr != nil {
-          \t\t\t// If we fail to get the children, assume there are no children.
-          \t\t\tchildren = []*ps.Process{}
-          \t\t}
-
-          \t\tfor _, child := range children {
-          \t\t\t// Windows can retain a dead process's parent PID after that PID is reused.
-          \t\t\t// A real child cannot have started before its parent.
-          \t\t\tchildIdentityTime := processIdentityTime(child)
-          \t\t\tif !currentIdentityTime.IsZero() && !childIdentityTime.IsZero() && childIdentityTime.Before(currentIdentityTime) {
-          \t\t\t\tif guardLogPath := os.Getenv("DCP_PROCESS_TREE_GUARD_LOG"); guardLogPath != "" {
-          \t\t\t\t\tcurrentName, currentNameErr := current.Name()
-          \t\t\t\t\tif currentNameErr != nil {
-          \t\t\t\t\t\tcurrentName = "<unknown>"
-          \t\t\t\t\t}
-          \t\t\t\t\tchildName, childNameErr := child.Name()
-          \t\t\t\t\tif childNameErr != nil {
-          \t\t\t\t\t\tchildName = "<unknown>"
-          \t\t\t\t\t}
-          \t\t\t\t\tguardLog, guardLogErr := os.OpenFile(guardLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-          \t\t\t\t\tif guardLogErr != nil {
-          \t\t\t\t\t\tfmt.Fprintf(os.Stderr, "failed to open process-tree guard log %q: %v\\n", guardLogPath, guardLogErr)
-          \t\t\t\t\t} else {
-          \t\t\t\t\t\tfmt.Fprintf(
-          \t\t\t\t\t\t\tguardLog,
-          \t\t\t\t\t\t\t"%s parent=%s(%d) parent_start=%s rejected_child=%s(%d) child_start=%s\\n",
-          \t\t\t\t\t\t\ttime.Now().UTC().Format(time.RFC3339Nano),
-          \t\t\t\t\t\t\tcurrentName,
-          \t\t\t\t\t\t\tcurrent.Pid,
-          \t\t\t\t\t\t\tcurrentIdentityTime.Format(time.RFC3339Nano),
-          \t\t\t\t\t\t\tchildName,
-          \t\t\t\t\t\t\tchild.Pid,
-          \t\t\t\t\t\t\tchildIdentityTime.Format(time.RFC3339Nano),
-          \t\t\t\t\t\t)
-          \t\t\t\t\t\tif guardLogCloseErr := guardLog.Close(); guardLogCloseErr != nil {
-          \t\t\t\t\t\t\tfmt.Fprintf(os.Stderr, "failed to close process-tree guard log %q: %v\\n", guardLogPath, guardLogCloseErr)
-          \t\t\t\t\t\t}
-          \t\t\t\t\t}
-          \t\t\t\t}
-          \t\t\t\tcontinue
-          \t\t\t}
-          \t\t\tnext = append(next, child)
-          \t\t}
-          '''
-          if source.count(needle) != 1:
-              raise SystemExit("Expected one process-tree traversal block")
-          path.write_text(source.replace(needle, replacement))
-          PY
-          gofmt -w pkg/process/process_util.go
-
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -o ../dcp-experiment/start-time-guard/dcp.exe ./cmd/dcp
-
-      - name: Upload DCP experiment binaries
+      - name: Upload DCP PR binary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dcp-experiment
-          path: dcp-experiment/
+          name: dcp-pr278
+          path: dcp-pr278/
           if-no-files-found: error
 
   build_cli_e2e_image:
@@ -212,7 +137,7 @@ jobs:
         (needs.build_cli_e2e_image.result == 'success' || needs.build_cli_e2e_image.result == 'skipped')
       }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
@@ -321,12 +246,12 @@ jobs:
         if: runner.os == 'Windows'
         run: ${{ env.DOTNET_SCRIPT }} build-server shutdown
 
-      - name: Download DCP experiment binaries
+      - name: Download DCP PR binary
         if: runner.os == 'Windows'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: dcp-experiment
-          path: ${{ github.workspace }}/dcp-experiment
+          name: dcp-pr278
+          path: ${{ github.workspace }}/dcp-pr278
 
       - name: Run test iterations (Linux/macOS)
         if: runner.os != 'Windows'
@@ -398,7 +323,7 @@ jobs:
 
       - name: Run test iterations (Windows)
         if: runner.os == 'Windows'
-        timeout-minutes: 22
+        timeout-minutes: 27
         shell: pwsh
         env:
           ASPIRE__TEST__DCPLOGBASEPATH: ${{ github.workspace }}/testresults/dcp
@@ -424,21 +349,15 @@ jobs:
 
           $iterations = 1
           switch ($env:EXPERIMENT_ARM) {
-            "BUNDLED-CONTROL" {
-              $filterArgs = @("--filter-class", "*.WithUrlsTests")
-              $expectedTests = 35
-            }
-            "GUARDED-WITHURLS" {
-              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\start-time-guard\dcp.exe"
-              $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
-              $filterArgs = @("--filter-class", "*.WithUrlsTests")
-              $expectedTests = 35
-            }
-            "GUARDED-HOSTING1" {
-              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-experiment\start-time-guard\dcp.exe"
-              $env:DCP_PROCESS_TREE_GUARD_LOG = "${{ github.workspace }}\guard-events.log"
+            "DCP278-HOSTING1" {
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-pr278\dcp.exe"
               $filterArgs = @("--filter-trait", "Partition=1")
               $expectedTests = 27
+            }
+            "DCP278-HOSTING5" {
+              $env:DcpPublisher__CliPath = "${{ github.workspace }}\dcp-pr278\dcp.exe"
+              $filterArgs = @("--filter-trait", "Partition=5")
+              $expectedTests = 534
             }
             default {
               throw "Unknown experiment arm '$env:EXPERIMENT_ARM'."
@@ -511,8 +430,8 @@ jobs:
                 --crashdump `
                 --hangdump `
                 --hangdump-type none `
-                --hangdump-timeout 4m `
-                --timeout 12m `
+                --hangdump-timeout 8m `
+                --timeout 20m `
                 --results-directory "${{ github.workspace }}/testresults" `
                 @filterArgs `
                 --filter-not-trait "quarantined=true" `
@@ -590,14 +509,6 @@ jobs:
           path: all-results/
           if-no-files-found: ignore
 
-      - name: Upload process-tree guard events
-        if: ${{ always() && startsWith(matrix.arm, 'GUARDED-') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: guard-events-${{ matrix.arm }}-${{ matrix.index }}
-          path: guard-events.log
-          if-no-files-found: ignore
-
   results:
     if: always()
     runs-on: ubuntu-latest
@@ -612,10 +523,11 @@ jobs:
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Test Project | \`${{ env.TEST_PROJECT }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Experiment | Large-sample production-shaped DCP guard confirmation |" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | microsoft/dcp#278 validation against complete Hosting partitions |" >> $GITHUB_STEP_SUMMARY
           echo "| OS | windows-latest |" >> $GITHUB_STEP_SUMMARY
           echo "| Runners per arm | ${{ env.RUNNERS_PER_ARM }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Arms | Guarded WithUrlsTests; guarded Hosting-1 |" >> $GITHUB_STEP_SUMMARY
+          echo "| DCP commit | \`842f976b3c22e886bd307cded5b849fd94bc8234\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Arms | Complete Hosting-1; complete Hosting-5 |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.reproduce.result }}" = "success" ]; then
