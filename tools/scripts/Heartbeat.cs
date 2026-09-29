@@ -785,7 +785,7 @@ string GetDockerStats()
 
 string GetDcpProcesses(Process[]? sharedProcesses = null)
 {
-    var dcpProcesses = new List<(string Name, int Pid, double Cpu, double MemMb, int Handles, int Threads)>();
+    var dcpProcesses = new List<(string Name, int Pid, int ParentPid, double AgeSeconds, double Cpu, double MemMb, int Handles, int Threads)>();
 
     if (os == "Windows")
     {
@@ -806,14 +806,22 @@ string GetDcpProcesses(Process[]? sharedProcesses = null)
 
                     double cpu = 0;
                     double memMb = 0;
-                    var uptimeSec = (DateTime.UtcNow - proc.StartTime.ToUniversalTime()).TotalSeconds;
-                    if (uptimeSec > 0)
+                    var ageSeconds = (DateTime.UtcNow - proc.StartTime.ToUniversalTime()).TotalSeconds;
+                    if (ageSeconds > 0)
                     {
-                        cpu = Math.Round((proc.TotalProcessorTime.TotalSeconds / uptimeSec) * 100, 1);
+                        cpu = Math.Round((proc.TotalProcessorTime.TotalSeconds / ageSeconds) * 100, 1);
                     }
 
                     memMb = proc.WorkingSet64 / 1024.0 / 1024.0;
-                    dcpProcesses.Add((proc.ProcessName, proc.Id, cpu, memMb, proc.HandleCount, proc.Threads.Count));
+                    dcpProcesses.Add((
+                        proc.ProcessName,
+                        proc.Id,
+                        GetWindowsParentProcessId(proc),
+                        ageSeconds,
+                        cpu,
+                        memMb,
+                        proc.HandleCount,
+                        proc.Threads.Count));
                 }
                 catch { /* process may have exited or access may be denied */ }
             }
@@ -853,7 +861,7 @@ string GetDcpProcesses(Process[]? sharedProcesses = null)
                             var name = Path.GetFileName(command);
                             if (name.StartsWith("dcp", StringComparison.OrdinalIgnoreCase))
                             {
-                                dcpProcesses.Add((name, pid, cpu, rssKb / 1024.0, -1, -1));
+                                dcpProcesses.Add((name, pid, -1, -1, cpu, rssKb / 1024.0, -1, -1));
                             }
                         }
                     }
@@ -875,10 +883,23 @@ string GetDcpProcesses(Process[]? sharedProcesses = null)
     var totalMem = dcpProcesses.Sum(p => p.MemMb);
     var processInfo = string.Join(", ", dcpProcesses.Select(p =>
         p.Handles >= 0
-            ? $"{p.Name}({p.Pid}):{p.Cpu:F1}%/{p.MemMb:F0}MB/{p.Handles}h/{p.Threads}t"
+            ? $"{p.Name}({p.Pid}<-{p.ParentPid},age={p.AgeSeconds:F0}s):" +
+              $"{p.Cpu:F1}%/{p.MemMb:F0}MB/{p.Handles}h/{p.Threads}t"
             : $"{p.Name}({p.Pid}):{p.Cpu:F1}%/{p.MemMb:F0}MB"));
 
     return $"{dcpProcesses.Count} procs ({totalCpu:F1}%/{totalMem:F0}MB) [{processInfo}]";
+}
+
+static int GetWindowsParentProcessId(Process process)
+{
+    return NativeMethods.NtQueryInformationProcess(
+        process.Handle,
+        ProcessBasicInformation,
+        out var basicInformation,
+        Marshal.SizeOf<PROCESS_BASIC_INFORMATION>(),
+        out _) == 0
+            ? basicInformation.InheritedFromUniqueProcessId.ToInt32()
+            : -1;
 }
 
 string GetTopProcesses(Process[]? sharedProcesses = null)
