@@ -7,7 +7,8 @@
   "communityContributors": [],
   "description": "The `aspire stop --force` command now supports an opt-in `--volumes` flag to also remove persistent volumes created by the AppHost, while preserving them by default.",
   "docsPrs": [
-    1729
+    1729,
+    1746
   ],
   "docsRequired": true,
   "emoji": "🧹",

@@ -1,0 +1,9 @@
+{
+  "author": "ellahathaway",
+  "comment": "Documents aspire stop volume cleanup (#20195)",
+  "mergedAt": "2026-09-29T15:42:15Z",
+  "number": 1746,
+  "runDate": "2026-09-29T18:10:00Z",
+  "status": "included",
+  "title": "[docs] Clarify anonymous-volume behavior for `aspire stop --force`"
+}

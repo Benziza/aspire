@@ -8,7 +8,9 @@
     "@marshalhayes"
   ],
   "description": "Adds `Aspire.Hosting.Java`, a new hosting integration for running and building Java applications (including Maven and Gradle projects), ported and reworked from the Community Toolkit for parity with the existing Rust, Go, Node, and Python resource integrations.",
-  "docsPrs": [],
+  "docsPrs": [
+    1794
+  ],
   "docsRequired": true,
   "emoji": "☕",
   "firstMergedAt": "2026-08-18T00:11:39Z",

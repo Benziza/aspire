@@ -6,7 +6,9 @@
   "changeType": "New features",
   "communityContributors": [],
   "description": "Twelve new opt-in Azure Provisioning SDK proxy packages let polyglot AppHosts customize generated Bicep for AppConfiguration, AppContainers, AppService, Cdn, ContainerService, Kusto, Network, PrivateDns, PostgreSql, Redis, RedisEnterprise, and SignalR, extending the experimental proxy model to the remaining hosting integrations.",
-  "docsPrs": [],
+  "docsPrs": [
+    1748
+  ],
   "docsRequired": true,
   "emoji": "🧬",
   "firstMergedAt": "2026-09-22T16:45:43Z",
