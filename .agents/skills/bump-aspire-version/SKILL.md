@@ -49,22 +49,9 @@ old version throughout the repository.
 Review `git diff --check` and `git diff -- eng/Versions.props`. Confirm only the
 intended version properties and any directly related comment changed.
 
-For a metadata-only bump, parse the XML and assert the requested version without
-restoring or building the entire repository. Substitute the requested version:
-
-```bash
-python3 - 17.0.0 <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-
-group = ET.parse("eng/Versions.props").getroot().find("PropertyGroup")
-actual = ".".join(group.findtext(name) for name in
-                  ("MajorVersion", "MinorVersion", "PatchVersion"))
-assert actual == sys.argv[1], (actual, sys.argv[1])
-assert group.findtext("VersionPrefix") == "$(MajorVersion).$(MinorVersion).$(PatchVersion)"
-print(f"Repository version: {actual}")
-PY
-```
+For a metadata-only bump, parse the XML and assert that the major, minor, and patch
+properties match the requested version and `VersionPrefix` still composes those
+properties. This does not require restoring or building the entire repository.
 
 Check the diff separately to confirm prerelease settings and the dashboard-image
 pin were preserved. If the change extends beyond metadata, run focused validation
