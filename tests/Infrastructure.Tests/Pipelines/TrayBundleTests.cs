@@ -20,7 +20,7 @@ public sealed class TrayBundleTests(ITestOutputHelper output)
     public void LinuxLayoutsDoNotPackageTray(string rid)
     {
         using var workspace = TemporaryWorkspace.Create(output);
-        using var builder = new LayoutBuilder(workspace.Path, workspace.Path, rid, "test", false, "missing.app", "missing-windows");
+        using var builder = new LayoutBuilder(workspace.Path, workspace.Path, rid, "Debug", "test", false, "missing.app", "missing-windows");
 
         builder.CopyTray();
 
@@ -33,7 +33,7 @@ public sealed class TrayBundleTests(ITestOutputHelper output)
     public void MacLayoutRequiresExplicitTrayInput(string rid)
     {
         using var workspace = TemporaryWorkspace.Create(output);
-        using var builder = new LayoutBuilder(workspace.Path, workspace.Path, rid, "test", false, null, null);
+        using var builder = new LayoutBuilder(workspace.Path, workspace.Path, rid, "Debug", "test", false, null, null);
 
         var error = Assert.Throws<InvalidOperationException>(builder.CopyTray);
 
@@ -50,7 +50,7 @@ public sealed class TrayBundleTests(ITestOutputHelper output)
         using var workspace = TemporaryWorkspace.Create(output);
         var source = MacTrayTestPayload.Create(workspace.Path);
         File.Delete(Path.Combine(source, missingFile));
-        using var builder = new LayoutBuilder(Path.Combine(workspace.Path, "layout"), workspace.Path, "osx-arm64", "test", false, source, null);
+        using var builder = new LayoutBuilder(Path.Combine(workspace.Path, "layout"), workspace.Path, "osx-arm64", "Debug", "test", false, source, null);
 
         var error = Assert.Throws<InvalidOperationException>(builder.CopyTray);
 
@@ -65,7 +65,7 @@ public sealed class TrayBundleTests(ITestOutputHelper output)
         using var workspace = TemporaryWorkspace.Create(output);
         var source = MacTrayTestPayload.Create(workspace.Path);
         File.SetUnixFileMode(Path.Combine(source, "Contents/MacOS/aspire-tray"), UnixFileMode.UserRead);
-        using var builder = new LayoutBuilder(Path.Combine(workspace.Path, "layout"), workspace.Path, "osx-arm64", "test", false, source, null);
+        using var builder = new LayoutBuilder(Path.Combine(workspace.Path, "layout"), workspace.Path, "osx-arm64", "Debug", "test", false, source, null);
 
         var error = Assert.Throws<InvalidOperationException>(builder.CopyTray);
 
@@ -81,7 +81,7 @@ public sealed class TrayBundleTests(ITestOutputHelper output)
         var source = MacTrayTestPayload.Create(workspace.Path);
         var layout = Path.Combine(workspace.Path, "osx-arm64");
         var destination = Path.Combine(layout, "tray", "Aspire Tray.app");
-        using var builder = new LayoutBuilder(layout, workspace.Path, "osx-arm64", "test", false, source, null);
+        using var builder = new LayoutBuilder(layout, workspace.Path, "osx-arm64", "Debug", "test", false, source, null);
 
         builder.CopyTray();
 
@@ -221,7 +221,7 @@ public sealed class TrayBundleTests(ITestOutputHelper output)
         WindowsTrayTestPayload.Create(source, rid);
         File.WriteAllText(Path.Combine(source, "smoke.stdout.log"), "not runtime content");
         var layout = Path.Combine(workspace.Path, rid);
-        using var builder = new LayoutBuilder(layout, workspace.Path, rid, "test", false, null, source);
+        using var builder = new LayoutBuilder(layout, workspace.Path, rid, "Debug", "test", false, null, source);
 
         builder.CopyTray();
 
@@ -269,7 +269,7 @@ public sealed class TrayBundleTests(ITestOutputHelper output)
             File.Copy(typeof(TrayBundleTests).Assembly.Location, Path.Combine(source, "aspire-tray.exe"), overwrite: true);
         }
         using var builder = new LayoutBuilder(Path.Combine(workspace.Path, "layout"), workspace.Path,
-            scenario == "unsupported-rid" ? "win-x86" : "win-x64", "test", false, null,
+            scenario == "unsupported-rid" ? "win-x86" : "win-x64", "Debug", "test", false, null,
             scenario == "missing-input" ? null : source);
 
         if (scenario == "missing-input")
@@ -355,7 +355,7 @@ public sealed class TrayBundleTests(ITestOutputHelper output)
         WindowsTrayTestPayload.Create(source, rid);
         File.Copy(Path.Combine(RepoRoot.Path, "src/Shared/Aspire.ico"), Path.Combine(source, "Aspire.ico"), overwrite: true);
         var layout = Path.Combine(workspace.Path, rid);
-        using var builder = new LayoutBuilder(layout, workspace.Path, rid, "test", false, null, source);
+        using var builder = new LayoutBuilder(layout, workspace.Path, rid, "Debug", "test", false, null, source);
         builder.CopyTray();
         var tray = Path.Combine(layout, "tray");
         switch (scenario)

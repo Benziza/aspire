@@ -106,6 +106,38 @@ public class AuxiliaryBackchannelTests(ITestOutputHelper outputHelper)
     }
 
     [Fact]
+    public async Task StopClosesActiveClientConnections()
+    {
+        using var builder = TestDistributedApplicationBuilder.CreateWithTestContainerRegistry(outputHelper);
+
+        var connectedEventReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        builder.Eventing.Subscribe<AuxiliaryBackchannelConnectedEvent>((_, _) =>
+        {
+            connectedEventReceived.TrySetResult();
+            return Task.CompletedTask;
+        });
+
+        using var app = builder.Build();
+
+        await app.StartAsync().DefaultTimeout();
+
+        var service = app.Services.GetRequiredService<AuxiliaryBackchannelService>();
+        await service.ListeningTask.DefaultTimeout();
+        Assert.NotNull(service.SocketPath);
+
+        using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        await socket.ConnectAsync(new UnixDomainSocketEndPoint(service.SocketPath)).DefaultTimeout();
+        await connectedEventReceived.Task.DefaultTimeout();
+
+        using var stream = new NetworkStream(socket, ownsSocket: false);
+
+        await app.StopAsync().DefaultTimeout();
+
+        var bytesRead = await stream.ReadAsync(new byte[1]).AsTask().DefaultTimeout();
+        Assert.Equal(0, bytesRead);
+    }
+
+    [Fact]
     public async Task CanInvokeRpcMethodOnAuxiliaryBackchannel()
     {
         // This test verifies that RPC methods can be invoked
@@ -715,6 +747,49 @@ public class AuxiliaryBackchannelTests(ITestOutputHelper outputHelper)
         finally
         {
             tempRoot.Delete(recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CreateSocket_RestrictsDirectoryAndSocketPermissions(bool existingDirectory)
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var directory = BackchannelConstants.GetBackchannelsDirectory(root.FullName);
+            if (existingDirectory)
+            {
+                Directory.CreateDirectory(directory);
+                if (!OperatingSystem.IsWindows())
+                {
+                    File.SetUnixFileMode(directory,
+                        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                        UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute |
+                        UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+                }
+            }
+
+            using var listener = AppHostSocketManager.CreateSocket(
+                appHostPath: null,
+                root.FullName,
+                Environment.ProcessId,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+
+            if (!OperatingSystem.IsWindows())
+            {
+                Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                    File.GetUnixFileMode(directory));
+                Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                    File.GetUnixFileMode(listener.SocketPath));
+            }
+
+            Assert.True(File.Exists(listener.SocketPath));
+        }
+        finally
+        {
+            root.Delete(recursive: true);
         }
     }
 
