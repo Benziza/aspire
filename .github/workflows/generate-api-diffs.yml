@@ -66,6 +66,24 @@ jobs:
           client-id: ${{ secrets.ASPIRE_BOT_APP_ID }}
           private-key: ${{ secrets.ASPIRE_BOT_PRIVATE_KEY }}
 
+      - name: Create PR branch at the base commit
+        if: ${{ matrix.target_branch != 'main' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_BRANCH: ${{ format('update-api-diffs-{0}', matrix.target_branch) }}
+        run: |
+          # Pushing a brand-new branch based on a release branch is rejected with "Unable to
+          # determine if workflow can be created or updated due to timeout" because GitHub has to
+          # scan the large workflow diff against the default branch. Creating the branch at the
+          # already-pushed base commit makes the later push a small update of an existing branch.
+          # This runs here instead of in the create-pull-request action because that action is
+          # resolved from the checked-out release branch.
+          if ! git ls-remote --exit-code --heads origin "$PR_BRANCH" >/dev/null; then
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/heads/$PR_BRANCH" \
+              -f sha="$(git rev-parse HEAD)" >/dev/null
+          fi
+
       - name: Create or update pull request
         uses: ./.github/actions/create-pull-request
         with:
