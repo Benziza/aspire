@@ -93,9 +93,8 @@ jobs:
         if: ${{ fromJson(inputs.properties).requiresNugets == true }}
         with:
           dotnet-version: |
-            8.x
-            9.x
             10.x
+            11.x
         env:
           DOTNET_INSTALL_DIR: ${{ env.DOTNET_ROOT }}
 
@@ -783,7 +782,7 @@ jobs:
           path: |
             **/*.binlog
             testresults/**
-            artifacts/bin/Aspire.Templates.Tests/Debug/net8.0/logs/**
+            artifacts/bin/Aspire.Templates.Tests/Debug/net10.0/logs/**
             artifacts/log/test-logs/**
 
       - name: Copy CLI E2E recordings for upload

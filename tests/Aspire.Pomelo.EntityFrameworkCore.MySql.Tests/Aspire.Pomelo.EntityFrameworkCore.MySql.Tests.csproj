@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>$(AllTargetFrameworks)</TargetFrameworks>
+    <TargetFramework>$(DefaultTargetFramework)</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,9 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Needed until Pomelo MySQL EF supports net9.0 - https://github.com/microsoft/aspire/pull/6948 -->
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" VersionOverride="$(MicrosoftExtensionsDiagnosticsHealthChecksEntityFrameworkCoreLTSVersion)" />
-
     <PackageReference Include="Testcontainers.MySql" />
   </ItemGroup>
   <ItemGroup>

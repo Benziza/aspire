@@ -257,6 +257,19 @@ path_rules:
     reason: this reusable workflow only produces native CLI archives, so only jobs/tests that list build_cli_archive_* or require CLI archives are affected
 
   # --- convention misses: integration dirs whose covering test is NOT the same-named one ------
+  - paths:
+      - src/Aspire.Hosting/Aspire.Hosting.csproj
+      - src/Aspire.Hosting.AppHost/Aspire.Hosting.AppHost.csproj
+      - src/Aspire.Cli/Aspire.Cli.csproj
+      - src/Aspire.Hosting.Tasks/Aspire.Hosting.Tasks.csproj
+      - src/Aspire.Hosting.Analyzers/Aspire.Hosting.Analyzers.csproj
+      - src/Components/Aspire.MongoDB.EntityFrameworkCore/Aspire.MongoDB.EntityFrameworkCore.csproj
+      - src/Components/Aspire.Oracle.EntityFrameworkCore/Aspire.Oracle.EntityFrameworkCore.csproj
+      - src/Components/Aspire.Pomelo.EntityFrameworkCore.MySql/Aspire.Pomelo.EntityFrameworkCore.MySql.csproj
+      - src/Components/Aspire.Npgsql.EntityFrameworkCore.PostgreSQL/Aspire.Npgsql.EntityFrameworkCore.PostgreSQL.csproj
+      - src/Aspire.ProjectTemplates/templates/**/.template.config/template.json
+    targets: [test:Infrastructure.Tests]
+    reason: framework policy tests evaluate these projects and read template framework choices at runtime
   - paths: [src/Aspire.Hosting.Azure.*/**]
     targets: [test:Aspire.Hosting.Azure.Tests]
     reason: Azure hosting integrations have no dedicated test; Aspire.Hosting.Azure.Tests is the aggregate

@@ -638,7 +638,6 @@ public sealed class ReleasePublishNugetPipelineTests
         var submission = template[submitIndex..];
 
         Assert.Contains("packageType: 'runtime'", runtimeInstall);
-        Assert.Contains("version: '9.0.x'", runtimeInstall);
         Assert.Contains("condition: succeeded()", runtimeInstall);
         Assert.Contains("wingetcreate.exe\" info", wingetCreateInstall);
         Assert.Contains("condition: succeeded()", wingetCreateInstall);
@@ -653,7 +652,6 @@ public sealed class ReleasePublishNugetPipelineTests
 
         Assert.Contains("- task: UseDotNet@2", template);
         Assert.Contains("packageType: 'runtime'", template);
-        Assert.Contains("version: '9.0.x'", template);
         Assert.Contains("https://aka.ms/wingetcreate/latest", template);
         Assert.Contains("wingetcreate.exe\" info", template);
     }
