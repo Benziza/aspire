@@ -104,6 +104,12 @@ steps:
           -Configuration '${{ parameters.buildConfig }}'
       displayName: 🟣Generate template component manifest
 
+    - task: 1ES.PublishPipelineArtifact@1
+      displayName: 🟣Publish template component manifest
+      inputs:
+        path: '$(Build.SourcesDirectory)/artifacts/cg/templates/cgmanifest.json'
+        artifactName: template-component-manifest
+
     - ${{ if eq(parameters.validateNpmPackageSignatures, true) }}:
       - pwsh: |
           & "$(Build.SourcesDirectory)/eng/scripts/validate-npm-package-signatures.ps1" `

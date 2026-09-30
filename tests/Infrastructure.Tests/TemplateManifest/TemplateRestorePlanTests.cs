@@ -2,7 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using System.Xml.Linq;
+using Aspire.TestUtilities;
 using GenerateTemplateManifest;
 using Xunit;
 
@@ -130,6 +132,62 @@ public sealed class TemplateRestorePlanTests(ITestOutputHelper output)
 
         Assert.Equal(["first", "second"], normalized.Descendants("Mode").Select(e => e.Value));
         Assert.Equal("'$(Mode)' == 'first'", normalized.Elements("PropertyGroup").Last().Attribute("Condition")!.Value);
+    }
+
+    [Fact]
+    [RequiresTools(["pwsh"])]
+    public async Task DoesNotMovePropertiesPastAChooseThatSelectsDependencies()
+    {
+        using var workspace = TemporaryWorkspace.Create(output);
+        var source = XElement.Parse("""
+            <Project>
+              <PropertyGroup><UsePrimary>true</UsePrimary></PropertyGroup>
+              <Choose>
+                <When Condition="'$(UsePrimary)' == 'true'">
+                  <ItemGroup><PackageReference Include="Primary" Version="1.0.0" /></ItemGroup>
+                </When>
+                <Otherwise>
+                  <ItemGroup><PackageReference Include="WrongBranch" Version="2.0.0" /></ItemGroup>
+                </Otherwise>
+              </Choose>
+              <PropertyGroup><OtherProperty>value</OtherProperty></PropertyGroup>
+            </Project>
+            """);
+        var path = Path.Combine(workspace.Path, "normalized.proj");
+        new XDocument(TemplateRestorePlan.Normalize(source)).Save(path);
+        var script = Path.Combine(workspace.Path, "evaluate.ps1");
+        File.WriteAllText(script, """
+            & $env:TEST_DOTNET msbuild $env:TEST_PROJECT -nologo -getItem:PackageReference
+            exit $LASTEXITCODE
+            """);
+        using var command = new PowerShellCommand(script, output)
+            .WithTimeout(TimeSpan.FromMinutes(1))
+            .WithEnvironmentVariable("TEST_DOTNET", Path.Combine(RepoRoot.Path, ".dotnet", OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"))
+            .WithEnvironmentVariable("TEST_PROJECT", path);
+
+        var result = await command.ExecuteAsync();
+        result.EnsureSuccessful();
+
+        using var evaluation = JsonDocument.Parse(result.Output);
+        var package = Assert.Single(evaluation.RootElement.GetProperty("Items").GetProperty("PackageReference").EnumerateArray());
+        Assert.Equal("Primary", package.GetProperty("Identity").GetString());
+        Assert.Equal("1.0.0", package.GetProperty("Version").GetString());
+    }
+
+    [Theory]
+    [InlineData("<Import Project=\"external.props\" />")]
+    [InlineData("<Target Name=\"Collect\"><Message Text=\"$(Property)\" /></Target>")]
+    public void PreservesGroupsAroundOtherTopLevelElements(string element)
+    {
+        var source = XElement.Parse($"""
+            <Project>
+              <PropertyGroup><Property>before</Property></PropertyGroup>
+              {element}
+              <ItemGroup><PackageReference Include="Example" Version="1.0.0" /></ItemGroup>
+            </Project>
+            """);
+
+        Assert.True(XNode.DeepEquals(source, TemplateRestorePlan.Normalize(source)));
     }
 
     [Fact]

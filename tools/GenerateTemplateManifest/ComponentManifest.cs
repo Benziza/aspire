@@ -15,6 +15,49 @@ internal sealed class ComponentManifest(IReadOnlySet<string> builtPackages)
 
     internal int Count => _registrations.Count;
 
+    internal void RegisterNuGetAssets(JsonElement assets, string source)
+    {
+        foreach (var library in assets.GetProperty("libraries").EnumerateObject())
+        {
+            if (library.Value.GetProperty("type").GetString() == "package")
+            {
+                // Assets library keys are "<package-id>/<resolved-version>", not version ranges.
+                var separator = library.Name.LastIndexOf('/');
+                if (separator <= 0 || separator == library.Name.Length - 1)
+                {
+                    throw new InvalidDataException($"Invalid NuGet library '{library.Name}' in {source}");
+                }
+                Register("nuget", library.Name[..separator], library.Name[(separator + 1)..], source);
+            }
+        }
+
+        foreach (var framework in assets.GetProperty("project").GetProperty("frameworks").EnumerateObject())
+        {
+            if (!framework.Value.TryGetProperty("downloadDependencies", out var downloads))
+            {
+                continue;
+            }
+            foreach (var download in downloads.EnumerateArray())
+            {
+                // PackageDownload entries live outside "libraries", e.g.
+                // "downloadDependencies": [{"name":"Example","version":"[1.2.3, 1.2.3]"}].
+                // Multiple exact downloads use "[1.2.3, 1.2.3];[2.0.0, 2.0.0]".
+                var name = download.GetProperty("name").GetString() ?? "";
+                var version = download.GetProperty("version").GetString() ?? "";
+                foreach (var entry in version.Split(';'))
+                {
+                    if (!VersionRange.TryParse(entry, out var range) ||
+                        range.IsFloating || !range.IsMinInclusive || !range.IsMaxInclusive ||
+                        range.MinVersion is null || range.MaxVersion is null || range.MinVersion != range.MaxVersion)
+                    {
+                        throw new InvalidDataException($"Unsupported PackageDownload version '{version}' for '{name}' in {source}; an exact version is required.");
+                    }
+                    Register("nuget", name, range.MinVersion.ToNormalizedString(), source);
+                }
+            }
+        }
+    }
+
     internal void Register(string type, string name, string version, string source)
     {
         if (string.IsNullOrWhiteSpace(name) || !NuGetVersion.TryParse(version, out var parsedVersion))

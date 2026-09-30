@@ -62,7 +62,12 @@ command.SetAction(async result =>
                 throw new InvalidDataException($"Unexpected npm package path '{package.Name}' in {lockPath}");
             }
 
-            manifest.Register("npm", package.Name[(index + marker.Length)..],
+            // Aliases are installed under their alias path, e.g. node_modules/aliased-number,
+            // but the lock entry's "name": "is-number" identifies the actual component.
+            var name = package.Value.TryGetProperty("name", out var packageName)
+                ? packageName.GetString() ?? ""
+                : package.Name[(index + marker.Length)..];
+            manifest.Register("npm", name,
                 package.Value.GetProperty("version").GetString() ?? "", lockPath);
         }
     }
@@ -208,20 +213,7 @@ command.SetAction(async result =>
         }
         var assetsPath = Path.Combine(restoreDirectory, project.Name, "obj", "project.assets.json");
         using var assets = JsonDocument.Parse(File.ReadAllText(assetsPath));
-        foreach (var library in assets.RootElement.GetProperty("libraries").EnumerateObject())
-        {
-            if (library.Value.GetProperty("type").GetString() == "package")
-            {
-                // Assets library keys are "<package-id>/<resolved-version>", not version ranges.
-                var separator = library.Name.LastIndexOf('/');
-                if (separator <= 0 || separator == library.Name.Length - 1)
-                {
-                    throw new InvalidDataException($"Invalid NuGet library '{library.Name}' in {assetsPath}");
-                }
-
-                manifest.Register("nuget", library.Name[..separator], library.Name[(separator + 1)..], assetsPath);
-            }
-        }
+        manifest.RegisterNuGetAssets(assets.RootElement, assetsPath);
     }
 
     Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);

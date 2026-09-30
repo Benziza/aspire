@@ -114,7 +114,7 @@ public sealed class TemplateManifestNpmTests(ITestOutputHelper output)
           "name": "fixture-app",
           "version": "0.0.0",
           "private": true,
-          "dependencies": { "direct": "^1.0.0", "@scope/direct": "^2.0.0" },
+          "dependencies": { "direct": "^1.0.0", "@scope/direct": "^2.0.0", "number-alias": "npm:is-number@7.0.0" },
           "devDependencies": { "dev-tool": "^4.0.0" },
           "optionalDependencies": { "optional-native": "^5.0.0" }
         }
@@ -129,19 +129,22 @@ public sealed class TemplateManifestNpmTests(ITestOutputHelper output)
             "": {
               "name": "fixture-app",
               "version": "0.0.0",
-              "dependencies": { "direct": "^1.0.0", "@scope/direct": "^2.0.0" },
+              "dependencies": { "direct": "^1.0.0", "@scope/direct": "^2.0.0", "number-alias": "npm:is-number@7.0.0" },
               "devDependencies": { "dev-tool": "^4.0.0" },
               "optionalDependencies": { "optional-native": "^5.0.0" }
             },
             "node_modules/direct": {
               "version": "1.2.0",
-              "dependencies": { "shared": "1.0.0", "@scope/transitive": "3.0.0" }
+              "dependencies": { "shared": "1.0.0", "@scope/transitive": "3.0.0", "scope-alias": "npm:@real/package@6.0.0" }
             },
             "node_modules/@scope/direct": {
               "version": "2.1.0",
               "dependencies": { "shared": "2.0.0", "@scope/transitive": "3.0.0" }
             },
             "node_modules/shared": { "version": "1.0.0" },
+            "node_modules/number-alias": { "name": "is-number", "version": "7.0.0" },
+            "node_modules/is-number": { "version": "7.0.0" },
+            "node_modules/direct/node_modules/scope-alias": { "name": "@real/package", "version": "6.0.0" },
             "node_modules/@scope/direct/node_modules/shared": { "version": "2.0.0" },
             "node_modules/direct/node_modules/@scope/transitive": { "version": "3.0.0" },
             "node_modules/@scope/direct/node_modules/@scope/transitive": { "version": "3.0.0" },

@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Xunit;
+using YamlDotNet.RepresentationModel;
 
 namespace Infrastructure.Tests;
 
@@ -18,6 +19,24 @@ public sealed class CiWorkflowTests
         Assert.True(job.IndexOf("name: Generate template component manifest", StringComparison.Ordinal) <
             job.IndexOf("name: Clean up artifacts", StringComparison.Ordinal));
         Assert.Contains("eng/scripts/generate-template-cgmanifest.ps1", generate);
+    }
+
+    [Fact]
+    public void TemplateManifestArtifactContainsOnlyTheFinalInventory()
+    {
+        var yaml = new YamlStream();
+        yaml.Load(new StringReader(ReadWorkflow("build-packages.yml")));
+        var root = (YamlMappingNode)yaml.Documents[0].RootNode;
+        var jobs = (YamlMappingNode)root.Children["jobs"];
+        var job = (YamlMappingNode)jobs.Children["build_packages"];
+        var steps = (YamlSequenceNode)job.Children["steps"];
+        var upload = Assert.Single(steps.Children.Cast<YamlMappingNode>(), step =>
+            step.Children.TryGetValue("name", out var name) && ((YamlScalarNode)name).Value == "Upload template component manifest");
+        var inputs = (YamlMappingNode)upload.Children["with"];
+
+        Assert.Equal("artifacts/cg/templates/cgmanifest.json", ((YamlScalarNode)inputs.Children["path"]).Value);
+        Assert.Equal("5", ((YamlScalarNode)inputs.Children["retention-days"]).Value);
+        Assert.Equal("error", ((YamlScalarNode)inputs.Children["if-no-files-found"]).Value);
     }
 
     [Theory]

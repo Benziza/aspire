@@ -6,6 +6,15 @@
       "component": {
         "type": "npm",
         "npm": {
+          "name": "@real/package",
+          "version": "6.0.0"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "npm",
+        "npm": {
           "name": "@scope/direct",
           "version": "2.1.0"
         }
@@ -44,6 +53,15 @@
         "npm": {
           "name": "direct",
           "version": "1.2.0"
+        }
+      }
+    },
+    {
+      "component": {
+        "type": "npm",
+        "npm": {
+          "name": "is-number",
+          "version": "7.0.0"
         }
       }
     },

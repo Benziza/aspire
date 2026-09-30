@@ -236,6 +236,12 @@ internal sealed class TemplateRestorePlan
     {
         var project = new XElement(source);
         project.DescendantNodes().OfType<XComment>().Remove();
+        // Choose/Import/Target can consume preceding properties/items. Moving groups across
+        // those elements changes evaluation order, so preserve these project shapes verbatim.
+        if (project.Elements().Any(element => element.Name.LocalName is not ("PropertyGroup" or "ItemGroup")))
+        {
+            return project;
+        }
         // These affect compilation or app identity, never restore. Preserve all other properties
         // (including runner switches) and all dependency metadata rather than comparing package IDs alone.
         string[] compilationOnly = ["ImplicitUsings", "Nullable", "UserSecretsId", "IsPackable", "IsAspireSharedProject"];

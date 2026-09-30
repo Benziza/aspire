@@ -66,6 +66,15 @@ public sealed class TestTriggerMapTests
         Assert.Empty(result.Jobs);
     }
 
+    [Fact]
+    public void TemplateManifestBuildTargetSelectsInfrastructureCoverage()
+    {
+        var result = SelectWithRealMap("src/Aspire.ProjectTemplates/Aspire.ProjectTemplates.csproj");
+
+        Assert.False(result.SelectsAll);
+        Assert.Contains("Infrastructure.Tests", result.TestProjects);
+    }
+
     [Theory]
     [InlineData("eng/WarningPolicy.proj")]
     [InlineData("eng/build.ps1")]
