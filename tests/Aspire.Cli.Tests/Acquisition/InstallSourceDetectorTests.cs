@@ -187,6 +187,30 @@ public class InstallSourceDetectorTests(ITestOutputHelper outputHelper)
     }
 
     [Theory]
+    [InlineData("MISE_INSTALLS_DIR", true)]
+    [InlineData("MISE_INSTALLS_DIR", false)]
+    [InlineData("MISE_SYSTEM_INSTALLS_DIR", true)]
+    [InlineData("MISE_SYSTEM_INSTALLS_DIR", false)]
+    [InlineData("MISE_DATA_DIR", true)]
+    [InlineData("MISE_DATA_DIR", false)]
+    [SkipOnPlatform(TestPlatforms.Windows | TestPlatforms.Linux, "Firmlink normalization only applies on macOS.")]
+    public void Detect_NormalizesMacOSMiseRootAliases(string variable, bool configuredRootUsesPrivatePrefix)
+    {
+        using var workspace = TemporaryWorkspace.CreateForCli(outputHelper);
+        var root = Path.Combine("/tmp", workspace.WorkspaceRoot.Name, "custom");
+        var configuredRoot = configuredRootUsesPrivatePrefix ? "/private" + root : root;
+        var processRoot = configuredRootUsesPrivatePrefix ? root : "/private" + root;
+        var installsRoot = variable == "MISE_DATA_DIR" ? Path.Combine(processRoot, "installs") : processRoot;
+        var environment = TestEnvironment.CreateMacOS(new Dictionary<string, string?>
+        {
+            [variable] = configuredRoot + Path.DirectorySeparatorChar
+        });
+        var detector = CreateDetector(Path.Combine(installsRoot, "aspire", "13.5.0", "aspire"), environment);
+
+        Assert.Equal("mise", detector.Detect());
+    }
+
+    [Theory]
     [InlineData(true, "mise")]
     [InlineData(false, "unknown")]
     public void Detect_UsesPlatformPathComparisonForMise(bool windows, string expected)

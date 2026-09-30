@@ -110,14 +110,17 @@ internal sealed class InstallSourceDetector(
              MatchesConfiguredDirectory(installsDirectory.Parent?.FullName, environment.GetEnvironmentVariable("MISE_DATA_DIR"), comparison));
     }
 
-    private static bool MatchesConfiguredDirectory(string? actualDirectory, string? configuredDirectory, StringComparison comparison)
+    private bool MatchesConfiguredDirectory(string? actualDirectory, string? configuredDirectory, StringComparison comparison)
     {
+        // Use the executable's canonicalization for the configured root too, including
+        // macOS aliases such as /private/tmp/tools and /tmp/tools.
         return actualDirectory is not null &&
             !string.IsNullOrWhiteSpace(configuredDirectory) &&
             Path.IsPathFullyQualified(configuredDirectory) &&
+            CliPathHelper.ResolveSymlinkToFullPath(Path.TrimEndingDirectorySeparator(configuredDirectory), logger) is { } resolvedDirectory &&
             string.Equals(
                 actualDirectory,
-                Path.TrimEndingDirectorySeparator(Path.GetFullPath(configuredDirectory)),
+                Path.TrimEndingDirectorySeparator(resolvedDirectory),
                 comparison);
     }
 }
