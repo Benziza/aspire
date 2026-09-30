@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Aspire.Cli.Interaction;
 using Aspire.Cli.Packaging;
@@ -45,7 +46,7 @@ internal class CliDownloader(
 
         var baseUrl = channel.CliDownloadBaseUrl.TrimEnd('/');
 
-        var runtimeIdentifier = environment.RuntimeIdentifier;
+        var runtimeIdentifier = GetDownloadRid();
         var extension = environment.IsWindows() ? "zip" : "tar.gz";
         var archiveFilename = $"aspire-cli-{runtimeIdentifier}.{extension}";
         var checksumFilename = $"{archiveFilename}.sha512";
@@ -117,6 +118,51 @@ internal class CliDownloader(
         }
 
         return $"{fileName} from {source}";
+    }
+
+    private string GetDownloadRid()
+    {
+        var os = DetectOperatingSystem();
+        var arch = DetectArchitecture();
+        return $"{os}-{arch}";
+    }
+
+    private string DetectOperatingSystem()
+    {
+        if (environment.IsWindows())
+        {
+            return "win";
+        }
+        else if (environment.IsLinux())
+        {
+            // Check if it's musl-based (Alpine, etc.)
+            if (environment.RuntimeIdentifier.Contains("musl", StringComparison.OrdinalIgnoreCase))
+            {
+                return "linux-musl";
+            }
+
+            return "linux";
+        }
+        else if (environment.IsMacOS())
+        {
+            return "osx";
+        }
+        else
+        {
+            throw new PlatformNotSupportedException($"Unsupported operating system: {RuntimeInformation.OSDescription}");
+        }
+    }
+
+    private static string DetectArchitecture()
+    {
+        var arch = RuntimeInformation.ProcessArchitecture;
+        return arch switch
+        {
+            Architecture.X64 => "x64",
+            Architecture.X86 => "x86",
+            Architecture.Arm64 => "arm64",
+            _ => throw new PlatformNotSupportedException($"Unsupported architecture: {arch}")
+        };
     }
 
     private static async Task DownloadFileAsync(string url, string outputPath, int timeoutSeconds, CancellationToken cancellationToken)
