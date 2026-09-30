@@ -34,12 +34,13 @@ of the old version throughout the repository.
 
 ## Run the deterministic edit
 
-Use the bundled Python 3 script rather than generating ad-hoc editing code.
+Use the bundled C# file-based app with the repository's .NET SDK rather than
+generating ad-hoc editing code.
 From the repository root, substitute the requested version, target branch, and
 confirmed open milestone:
 
 ```bash
-python3 .agents/skills/bump-aspire-version/bump_version.py 17.0 --branch main --milestone 17.0
+dotnet run --file .agents/skills/bump-aspire-version/BumpVersion.cs -- 17.0 --branch main --milestone 17.0
 ```
 
 `--branch` is the PR's target branch, not the feature branch. `--milestone` is
