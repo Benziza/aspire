@@ -350,8 +350,7 @@ public sealed class DashboardWebApplication : IAsyncDisposable
             var serviceName = builder.Configuration[OtlpServiceNameConfigurationKey];
             builder.Services.AddOpenTelemetry()
                 .ConfigureResource(resource => resource.AddService(
-                    string.IsNullOrWhiteSpace(serviceName) ? DefaultOtlpServiceName : serviceName,
-                    autoGenerateServiceInstanceId: false))
+                    string.IsNullOrWhiteSpace(serviceName) ? DefaultOtlpServiceName : serviceName))
                 .WithTracing(tracing => tracing
                     .AddAspNetCoreInstrumentation()
                     .AddSource(DashboardActivitySource.ActivitySourceName)

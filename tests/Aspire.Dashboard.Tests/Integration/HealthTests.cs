@@ -97,6 +97,7 @@ public class HealthTests(HealthTests.Fixture fixture) : IClassFixture<HealthTest
 
         var resource = app.Services.GetRequiredService<TracerProvider>().GetResource();
         Assert.Equal(expectedServiceName, resource.Attributes.Single(attribute => attribute.Key == "service.name").Value);
+        Assert.NotEmpty(Assert.IsType<string>(resource.Attributes.Single(attribute => attribute.Key == "service.instance.id").Value));
     }
 
     public sealed class Fixture : IAsyncLifetime
