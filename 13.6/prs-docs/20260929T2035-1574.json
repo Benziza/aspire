@@ -1,0 +1,9 @@
+{
+  "author": "app/aspire-repo-bot",
+  "comment": "Documents Kubernetes hostname inheritance for Ingress paths and Gateway routes from product PR #19430",
+  "mergedAt": "2026-09-29T20:35:16Z",
+  "number": 1574,
+  "runDate": "2026-09-30T00:09:31Z",
+  "status": "included",
+  "title": "[docs] Document hostname inheritance for Ingress paths and Gateway routes"
+}

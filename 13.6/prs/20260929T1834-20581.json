@@ -1,0 +1,9 @@
+{
+  "author": "eerhardt",
+  "comment": "Removes remaining ASPIREDOTNETPROJECT001 suppressions; grouped with #20496",
+  "mergedAt": "2026-09-29T18:34:12Z",
+  "number": 20581,
+  "runDate": "2026-09-30T00:09:31Z",
+  "status": "included",
+  "title": "[release/13.6] Remove ASPIREDOTNETPROJECT001"
+}

@@ -1,0 +1,9 @@
+{
+  "author": "joperezr",
+  "comment": "Release-engineering fix to NuGet package signing pipeline; no user-facing product impact",
+  "mergedAt": "2026-09-29T18:49:43Z",
+  "number": 20583,
+  "runDate": "2026-09-30T00:09:31Z",
+  "status": "excluded",
+  "title": "[release/13.6] Sign Linux Dashboard NuGet packages during assembly"
+}
