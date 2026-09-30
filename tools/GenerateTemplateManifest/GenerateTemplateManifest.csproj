@@ -6,19 +6,13 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
-  <!-- Use the same template engine as the SDK that performs restore, without installing templates
-       into the user's hive or maintaining another template-engine package version. -->
   <ItemGroup>
-    <Reference Include="$(MSBuildBinPath)\Microsoft.TemplateEngine.Abstractions.dll" />
-    <Reference Include="$(MSBuildBinPath)\Microsoft.TemplateEngine.Core.Contracts.dll" />
-    <Reference Include="$(MSBuildBinPath)\Microsoft.TemplateEngine.Core.dll" />
-    <Reference Include="$(MSBuildBinPath)\Microsoft.TemplateEngine.Edge.dll" />
-    <Reference Include="$(MSBuildBinPath)\Microsoft.TemplateEngine.Orchestrator.RunnableProjects.dll" />
-    <Reference Include="$(MSBuildBinPath)\Microsoft.TemplateEngine.Utils.dll" />
+    <PackageReference Include="Microsoft.TemplateEngine.Edge" />
+    <PackageReference Include="Microsoft.TemplateEngine.Orchestrator.RunnableProjects" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="NuGet.Configuration" />
+    <PackageReference Include="NuGet.Versioning" />
     <PackageReference Include="System.CommandLine" />
-    <Reference Include="$(MSBuildBinPath)\Newtonsoft.Json.dll" />
-    <Reference Include="$(MSBuildBinPath)\NuGet.*.dll" />
     <InternalsVisibleTo Include="Infrastructure.Tests" />
   </ItemGroup>
 </Project>

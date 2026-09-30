@@ -29,7 +29,7 @@ Restore uses a private extraction cache, refreshing the locally built identities
 
 ## Independent graphs, one restore invocation
 
-`tools/GenerateTemplateManifest` uses the repository SDK's template engine in process. It renders only dependency-bearing files into a temporary directory; it does not generate application source, install templates into the user's hive, or execute post-actions.
+`tools/GenerateTemplateManifest` uses centrally pinned template-engine NuGet packages in process, rather than referencing assemblies from the SDK installation. It renders only dependency-bearing files into a temporary directory; it does not generate application source, install templates into the user's hive, or execute post-actions. NuGet restore still runs through the repository SDK.
 
 The generator discovers finite boolean/choice parameters used by project inputs, framework selection, source exclusions, and computed/generated symbols. Parameters affecting only application content, ports, or launch settings do not multiply the restore work. The template engine evaluates conditions and substitutions, including optional Redis, source-file exclusions, and all test-framework choices.
 
@@ -49,4 +49,4 @@ Set `-p:TemplateCgManifestPath=<path>` when invoking the MSBuild target to overr
 
 The helper's `--help` describes its six required positional arguments and `--plan-only` option. Use `--plan-only` to inspect graph deduplication without restoring.
 
-This generation step replaces the internal basic template test stage, but does not change the shipping template package or regular GitHub template tests. Coverage is evaluated with the invoking repository SDK; it is not a replacement for SDK compatibility or behavioral template tests.
+This generation step replaces the internal basic template test stage, but does not change the shipping template package or regular GitHub template tests. It removes the additional template build/run check against official-build packages; dependency-graph restoration is not equivalent to that smoke coverage. Generated-application compilation, runtime behavior, and SDK compatibility remain the responsibility of the existing GitHub template tests.

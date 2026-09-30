@@ -34,6 +34,11 @@ public sealed class TemplateManifestGenerationTests(ITestOutputHelper output)
         }
 
         (await command.ExecuteAsync(arguments)).EnsureSuccessful();
+
+        // An existing output must not turn the next package build into a skipped invocation.
+        var manifestPath = Path.Combine(root, "artifacts", "cg", "templates", "cgmanifest.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        File.WriteAllText(manifestPath, """{"version":1,"registrations":[]}""");
         (await command.ExecuteAsync(arguments)).EnsureSuccessful();
 
         var lines = File.ReadAllLines(report);
