@@ -42,6 +42,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenIdConnectOptions = Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions;
 
@@ -66,6 +67,8 @@ public sealed class DashboardWebApplication : IAsyncDisposable
 
     private const string DashboardAntiForgeryCookieNamePrefix = ".Aspire.Dashboard.Antiforgery";
     private const string OtlpExporterEndpointConfigurationKey = "OTEL_EXPORTER_OTLP_ENDPOINT";
+    private const string OtlpServiceNameConfigurationKey = "OTEL_SERVICE_NAME";
+    private const string DefaultOtlpServiceName = "aspire-dashboard";
     // Blazor discovers routed pages and layouts as Type values, then activates them and assigns
     // component parameters and [Inject] properties through reflection.
     // The explicit DynamicDependency annotations below can probably be removed once Blazor is
@@ -344,7 +347,11 @@ public sealed class DashboardWebApplication : IAsyncDisposable
         builder.Services.AddSingleton<ITelemetryErrorRecorder, TelemetryErrorRecorder>();
         if (!string.IsNullOrWhiteSpace(builder.Configuration[OtlpExporterEndpointConfigurationKey]))
         {
+            var serviceName = builder.Configuration[OtlpServiceNameConfigurationKey];
             builder.Services.AddOpenTelemetry()
+                .ConfigureResource(resource => resource.AddService(
+                    string.IsNullOrWhiteSpace(serviceName) ? DefaultOtlpServiceName : serviceName,
+                    autoGenerateServiceInstanceId: false))
                 .WithTracing(tracing => tracing
                     .AddAspNetCoreInstrumentation()
                     .AddSource(DashboardActivitySource.ActivitySourceName)

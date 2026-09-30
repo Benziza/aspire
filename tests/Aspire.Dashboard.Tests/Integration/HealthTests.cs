@@ -80,6 +80,25 @@ public class HealthTests(HealthTests.Fixture fixture) : IClassFixture<HealthTest
         Assert.Equal(ActivityKind.Consumer, exported.Kind);
     }
 
+    [Theory]
+    [InlineData(null, "aspire-dashboard")]
+    [InlineData("custom-dashboard", "custom-dashboard")]
+    public async Task OtlpExporterConfigured_ConfiguresServiceName(string? configuredServiceName, string expectedServiceName)
+    {
+        await using var app = IntegrationTestHelpers.CreateDashboardWebApplication(
+            NullLoggerFactory.Instance,
+            config =>
+            {
+                config["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://127.0.0.1:1";
+                config["OTEL_SERVICE_NAME"] = configuredServiceName;
+            });
+
+        await app.StartAsync().DefaultTimeout();
+
+        var resource = app.Services.GetRequiredService<TracerProvider>().GetResource();
+        Assert.Equal(expectedServiceName, resource.Attributes.Single(attribute => attribute.Key == "service.name").Value);
+    }
+
     public sealed class Fixture : IAsyncLifetime
     {
         public DashboardWebApplication App { get; private set; } = null!;
