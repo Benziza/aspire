@@ -28,7 +28,7 @@ internal sealed class Hex1bAspireTerminal : ITerminalBackend
     private readonly TaskCompletionSource _workloadEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _sessionEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
 
     private readonly TerminalService _owner;
     private readonly Hex1bTerminalBuilder _builder;

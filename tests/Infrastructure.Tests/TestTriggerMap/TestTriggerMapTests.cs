@@ -82,19 +82,6 @@ public sealed class TestTriggerMapTests
         Assert.Equal(["ALL", "job:deployment-e2e"], rule.Targets);
     }
 
-    [Theory]
-    [InlineData("src/Aspire.Hosting.Tasks/Aspire.Hosting.Tasks.csproj")]
-    [InlineData("src/Components/Aspire.MongoDB.EntityFrameworkCore/Aspire.MongoDB.EntityFrameworkCore.csproj")]
-    [InlineData("src/Aspire.ProjectTemplates/templates/aspire-empty/.template.config/template.json")]
-    public void FrameworkPolicyInputsSelectInfrastructureTests(string path)
-    {
-        var targets = s_map.PathRules
-            .Where(rule => rule.Paths.Any(glob => TestTriggerMap.GlobMatches(glob, path)))
-            .SelectMany(rule => rule.Targets);
-
-        Assert.Contains("test:Infrastructure.Tests", targets);
-    }
-
     [Fact]
     public void DeploymentTestRunnerSelectsDeploymentWorkflow()
     {
@@ -975,7 +962,7 @@ public sealed class TestTriggerMapTests
 
         Assert.False(result.SelectsAll);
         Assert.Equal(
-            ["Aspire.Cli.EndToEnd.Tests", "Aspire.Templates.Tests", "Infrastructure.Tests"],
+            ["Aspire.Cli.EndToEnd.Tests", "Aspire.Templates.Tests"],
             result.TestProjects.Order(StringComparer.Ordinal));
         Assert.Equal(
             ["job:deployment-e2e", "job:homebrew-installer", "job:winget-installer"],

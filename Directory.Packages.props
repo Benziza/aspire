@@ -317,9 +317,4 @@
     <PackageVersion Update="Npgsql.EntityFrameworkCore.PostgreSQL" Version="11.0.0-rc.1.1" />
   </ItemGroup>
 
-  <!-- Pomelo 9 requires EF Core 9 even though its Aspire integration targets .NET 10.
-       Keep the health-check dependency aligned in the integration and its test consumers. -->
-  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Aspire.Pomelo.EntityFrameworkCore.MySql' or '$(MSBuildProjectName)' == 'Aspire.Pomelo.EntityFrameworkCore.MySql.Tests' or '$(MSBuildProjectName)' == 'Aspire.Hosting.MySql.Tests'">
-    <PackageVersion Update="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="9.0.20" />
-  </ItemGroup>
 </Project>
