@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Aspire.Cli.Interaction;
 using Aspire.Cli.Packaging;
@@ -47,9 +45,8 @@ internal class CliDownloader(
 
         var baseUrl = channel.CliDownloadBaseUrl.TrimEnd('/');
 
-        var (os, arch) = DetectPlatform();
-        var runtimeIdentifier = $"{os}-{arch}";
-        var extension = os == "win" ? "zip" : "tar.gz";
+        var runtimeIdentifier = environment.RuntimeIdentifier;
+        var extension = environment.IsWindows() ? "zip" : "tar.gz";
         var archiveFilename = $"aspire-cli-{runtimeIdentifier}.{extension}";
         var checksumFilename = $"{archiveFilename}.sha512";
         var archiveUrl = $"{baseUrl}/{archiveFilename}";
@@ -120,63 +117,6 @@ internal class CliDownloader(
         }
 
         return $"{fileName} from {source}";
-    }
-
-    private (string os, string arch) DetectPlatform()
-    {
-        var os = DetectOperatingSystem();
-        var arch = DetectArchitecture();
-        return (os, arch);
-    }
-
-    private string DetectOperatingSystem()
-    {
-        if (environment.IsWindows())
-        {
-            return "win";
-        }
-        else if (environment.IsLinux())
-        {
-            // Check if it's musl-based (Alpine, etc.)
-            try
-            {
-                var lddPath = "/usr/bin/ldd";
-                if (File.Exists(lddPath))
-                {
-                    var result = Process.RunAndCaptureText(lddPath, ["--version"]);
-                    // musl's ldd reports its version on stderr and may return a nonzero exit code.
-                    if ((result.StandardOutput + result.StandardError).Contains("musl", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return "linux-musl";
-                    }
-                }
-            }
-            catch
-            {
-                // Fall back to regular linux
-            }
-            return "linux";
-        }
-        else if (environment.IsMacOS())
-        {
-            return "osx";
-        }
-        else
-        {
-            throw new PlatformNotSupportedException($"Unsupported operating system: {RuntimeInformation.OSDescription}");
-        }
-    }
-
-    private static string DetectArchitecture()
-    {
-        var arch = RuntimeInformation.ProcessArchitecture;
-        return arch switch
-        {
-            Architecture.X64 => "x64",
-            Architecture.X86 => "x86",
-            Architecture.Arm64 => "arm64",
-            _ => throw new PlatformNotSupportedException($"Unsupported architecture: {arch}")
-        };
     }
 
     private static async Task DownloadFileAsync(string url, string outputPath, int timeoutSeconds, CancellationToken cancellationToken)

@@ -180,6 +180,7 @@ internal sealed class MacOSCertificateManager : CertificateManager
             {
                 // Do this to avoid showing output to the console when the cert is not trusted. It is trivial to export
                 // the cert and replicate the command to see details.
+                StandardInputHandle = nullHandle,
                 StandardOutputHandle = nullHandle,
                 StandardErrorHandle = nullHandle
             };

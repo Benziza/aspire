@@ -313,7 +313,7 @@ internal sealed class DotNetBasedAppHostServerProject : IAppHostServerProject
         // Handle NuGet config and channel resolution
         string? channelName = null;
 
-        var userNugetConfig = _restoreRootConfigDirectory is null ? FindNuGetConfig(_appPath) : null;
+        var userNugetConfig = _restoreRootConfigDirectory is null ? await FindNuGetConfigAsync(_appPath, cancellationToken) : null;
         var nugetConfigContent = userNugetConfig is not null
             ? File.ReadAllText(userNugetConfig)
             : null;
@@ -722,24 +722,20 @@ internal sealed class DotNetBasedAppHostServerProject : IAppHostServerProject
         return new AppHostServerRunResult(_socketPath, outputCollector, execution);
     }
 
-    private static string? FindNuGetConfig(string workingDirectory)
+    private async Task<string?> FindNuGetConfigAsync(string workingDirectory, CancellationToken cancellationToken)
     {
         try
         {
-            var result = Process.RunAndCaptureText(new ProcessStartInfo("dotnet", "nuget config paths")
-            {
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            });
+            var (exitCode, configPaths) = await _dotNetCliRunner.GetNuGetConfigPathsAsync(
+                new DirectoryInfo(workingDirectory),
+                new ProcessInvocationOptions(),
+                cancellationToken);
 
-            if (result.ExitStatus.ExitCode != 0)
+            if (exitCode != 0)
             {
                 return null;
             }
 
-            var configPaths = result.StandardOutput.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
             var workingDirFullPath = Path.GetFullPath(workingDirectory);
             var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             var globalNuGetPath = Path.Combine(userProfile, ".nuget");
@@ -763,7 +759,7 @@ internal sealed class DotNetBasedAppHostServerProject : IAppHostServerProject
 
             return null;
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return null;
         }

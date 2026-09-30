@@ -744,6 +744,7 @@ internal sealed partial class UnixCertificateManager : CertificateManager
     private bool RunCertUtil(ProcessStartInfo startInfo, CancellationToken cancellationToken = default)
     {
         using var nullHandle = File.OpenNullHandle();
+        startInfo.StandardInputHandle = nullHandle;
         startInfo.StandardOutputHandle = nullHandle;
         startInfo.StandardErrorHandle = nullHandle;
         _configureCertUtilStartInfo(startInfo);

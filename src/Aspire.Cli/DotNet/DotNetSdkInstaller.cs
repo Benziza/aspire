@@ -31,6 +31,12 @@ internal sealed class DotNetSdkInstaller(IConfiguration configuration, IEnvironm
     {
         var minimumVersion = GetEffectiveMinimumSdkVersion(configuration);
 
+        // An invalid overrideMinimumSdkVersion can never be satisfied, so don't bother launching dotnet.
+        if (!SemVersion.TryParse(minimumVersion, SemVersionStyles.Strict, out var minVersion))
+        {
+            return (false, null, minimumVersion);
+        }
+
         try
         {
             // Add --arch flag to ensure we only get SDKs that match the current architecture
@@ -41,9 +47,6 @@ internal sealed class DotNetSdkInstaller(IConfiguration configuration, IEnvironm
             using var process = new Process { StartInfo = _createProcessStartInfo(dotnetPath, arguments) };
 
             process.Start();
-            var minVersion = SemVersion.TryParse(minimumVersion, SemVersionStyles.Strict, out var parsedMinimumVersion)
-                ? parsedMinimumVersion
-                : null;
             SemVersion? highestDetectedVersion = null;
             var meetsMinimum = false;
 
@@ -51,7 +54,7 @@ internal sealed class DotNetSdkInstaller(IConfiguration configuration, IEnvironm
             {
                 await foreach (var line in process.ReadAllLinesAsync(cancellationToken))
                 {
-                    if (line.StandardError || minVersion is null)
+                    if (line.StandardError)
                     {
                         continue;
                     }
@@ -92,7 +95,7 @@ internal sealed class DotNetSdkInstaller(IConfiguration configuration, IEnvironm
                 throw;
             }
 
-            if (process.ExitCode != 0 || minVersion is null)
+            if (process.ExitCode != 0)
             {
                 return (false, null, minimumVersion);
             }
