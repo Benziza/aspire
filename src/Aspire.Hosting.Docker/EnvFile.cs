@@ -51,7 +51,9 @@ internal sealed class EnvFile
                 if (!trimmedValue.IsEmpty && trimmedValue[0] is '\'' or '"')
                 {
                     var quote = trimmedValue[0];
-                    if (!ContainsClosingQuote(trimmedValue[1..], quote))
+                    var quoteStart = value.Length - trimmedValue.Length;
+                    var closingQuote = FindClosingQuote(trimmedValue[1..], quote);
+                    if (closingQuote < 0)
                     {
                         // Compose accepts values such as BANNER='hello\nworld'. Keep the raw
                         // quoted text, including blank lines, '#' and '=', so rewriting does
@@ -67,15 +69,38 @@ internal sealed class EnvFile
                                 throw new FormatException($"Unterminated quoted value for environment variable '{key}'.");
                             }
 
+                            var continuationStart = multilineValue.Length;
                             multilineValue.Append(continuation);
-                            if (ContainsClosingQuote(continuation, quote))
+                            closingQuote = FindClosingQuote(continuation, quote);
+                            if (closingQuote >= 0)
                             {
+                                closingQuote += continuationStart;
                                 break;
                             }
                         }
 
                         value = multilineValue.ToString();
                     }
+                    else
+                    {
+                        closingQuote += quoteStart + 1;
+                    }
+
+                    var suffix = value[(closingQuote + 1)..];
+                    var trimmedSuffix = suffix.AsSpan().TrimStart();
+                    if (!trimmedSuffix.IsEmpty && trimmedSuffix[0] != '#')
+                    {
+                        // Compose also accepts A='first\nsecond' B=value. Parse B separately;
+                        // keeping it in A's raw value would change override precedence on sorting.
+                        // See https://github.com/compose-spec/compose-go/blob/main/dotenv/parser.go.
+                        position -= suffix.Length + lineEnding.Length;
+                        value = value[..(closingQuote + 1)];
+                    }
+                }
+                else
+                {
+                    // A terminal CR is trailing whitespace; only internal CRs belong to the value.
+                    value = value.TrimEnd('\r');
                 }
 
                 envFile.Entries[key] = new EnvEntry(key, value, currentComment);
@@ -100,10 +125,10 @@ internal sealed class EnvFile
         Entries[key] = new EnvEntry(key, value, comment);
     }
 
-    private static bool TryParseKeyValue(string line, out string key, out string? value)
+    private static bool TryParseKeyValue(string line, out string key, out string value)
     {
         key = string.Empty;
-        value = null;
+        value = string.Empty;
         var trimmed = line.TrimStart();
         if (!trimmed.StartsWith('#') && trimmed.Contains('='))
         {
@@ -118,7 +143,7 @@ internal sealed class EnvFile
         return false;
     }
 
-    private static bool ContainsClosingQuote(ReadOnlySpan<char> value, char quote)
+    private static int FindClosingQuote(ReadOnlySpan<char> value, char quote)
     {
         for (var i = 0; i < value.Length; i++)
         {
@@ -130,11 +155,11 @@ internal sealed class EnvFile
             }
             else if (value[i] == quote)
             {
-                return true;
+                return i;
             }
         }
 
-        return false;
+        return -1;
     }
 
     private static string? ReadLine(string content, ref int position, out string lineEnding)
@@ -146,7 +171,9 @@ internal sealed class EnvFile
         }
 
         var start = position;
-        var relativeEnd = content.AsSpan(start).IndexOfAny('\r', '\n');
+        // Compose ends unquoted values at LF: VALUE=one\rOTHER=two is one assignment.
+        // Bare CR is content or whitespace between assignments, not a line delimiter.
+        var relativeEnd = content.AsSpan(start).IndexOf('\n');
         if (relativeEnd < 0)
         {
             position = content.Length;
@@ -154,8 +181,11 @@ internal sealed class EnvFile
         }
 
         var end = start + relativeEnd;
-        var newlineLength = content[end] == '\r' && end + 1 < content.Length && content[end + 1] == '\n' ? 2 : 1;
-        position = end + newlineLength;
+        position = end + 1;
+        if (end > start && content[end - 1] == '\r')
+        {
+            end--;
+        }
         // Preserve the original separator inside quoted values. Compose treats a
         // carriage return as value content, so using Environment.NewLine can change it.
         lineEnding = content[end..position];
